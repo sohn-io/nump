@@ -436,7 +436,7 @@ public partial class UserService
                 Surname = user.ContainsKey("sn") ? user["sn"] : null,
                 DisplayName = user.ContainsKey("displayName") ? user["displayName"] : null,
                 SamAccountName = sam,
-                UserPrincipalName = sam + "@SOHN.LOCAL",
+                UserPrincipalName = sam + "@" + creds["domain"],
                 Enabled = true,
                 Description = user.ContainsKey("description") ? user["description"] : null,
                 EmailAddress = user.ContainsKey("mail") ? user["mail"] : null,
