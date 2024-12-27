@@ -25,8 +25,10 @@ builder.Services.AddDbContext<NumpContext>(options =>
 {
     options.UseSqlite("Data Source=nump.db;Default Timeout=30");
 });
-builder.Services.AddScoped<TaskSchedulerService>();
-builder.Services.AddSingleton<TaskTimers>();
+builder.Services.AddSingleton<TaskSchedulerService>();
+
+// Register TaskSchedulerHostedService as Scoped (to manage startup)
+builder.Services.AddHostedService<TaskSchedulerHostedService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<PasswordService>();
 builder.Services.AddScoped<NotifService>();

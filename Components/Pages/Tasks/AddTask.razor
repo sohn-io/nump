@@ -4,6 +4,7 @@
 @inject NavigationManager _Nav
 @inject SaveService<NumpInstructionSet> _Save
     @inject DialogService DialogService
+    @inject TaskSchedulerService _taskScheduler
 @using System.Text.Json
 
 <RadzenTemplateForm Data="@newTask" Submit="@((NumpInstructionSet args) => { Submit(args); })">
@@ -129,7 +130,7 @@
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" AlignItems="AlignItems.Center">
                         <RadzenLabel Text="Time" />
                         <RadzenDatePicker @bind-Value=@newFrequency.time ShowTime="true" TimeOnly="true"
-                            DateFormat="HH:mm tt" Name="DatePickerTimeOnly" HourFormat="12" />
+                            DateFormat="hh:mm tt" Name="DatePickerTimeOnly" HourFormat="12" />
                     </RadzenStack>
                 }
                 @if (newFrequency.type == 4)
@@ -209,7 +210,7 @@
     public async Task Submit(NumpInstructionSet newTask)
     {
         newTask._frequency = newFrequency;
-        if (newFrequency.type != 4 && newTask.ParentTask != null)
+    
         {
             newTask.ParentTask = null;
         }
@@ -225,7 +226,7 @@
         {
             newTask.Created = DateTime.Now;
         }
-
+        await _taskScheduler.AddTimerForTask(newTask);
         await _Save.HandleSave(newTask);
 
         _Nav.NavigateTo("/tasks");

@@ -16,15 +16,14 @@ public partial class UserService
 {
 
     protected readonly NumpContext _context;
-    protected readonly TaskTimers _tasktimers;
+
     protected readonly NotifService _notify;
     protected readonly PasswordService _pw;
     public event EventHandler<TaskUpdatedEventArgs> OnTaskUpdated;
 
-    public UserService(NumpContext context, TaskTimers tasktimers, NotifService notify, PasswordService pw)
+    public UserService(NumpContext context, NotifService notify, PasswordService pw)
     {
         _context = context;
-        _tasktimers = tasktimers;
         _notify = notify;
         _pw = pw;
     }
@@ -48,17 +47,19 @@ public partial class UserService
         //GetSamAccountNames();
     }
 
-    public async Task ActuallyDoTask(NumpInstructionSet task, CancellationToken cancellationToken)
+    public async Task ActuallyDoTask(NumpInstructionSet task)
     {
-        await DoTask(task, cancellationToken);
+        task.CancelToken = new CancellationTokenSource();
+        await DoTask(task);
         loggedTask = null;
         NumpInstructionSet childTask = _context.Tasks.Where(x => x.ParentTask == task.Guid && x.Enabled == true).FirstOrDefault();
         if (childTask != null)
         {
-            await DoTask(childTask, cancellationToken);
+            childTask.CancelToken = new CancellationTokenSource();
+            await DoTask(childTask);
         }
     }
-    public async Task DoTask(NumpInstructionSet task, CancellationToken cancellationToken)
+    public async Task DoTask(NumpInstructionSet task)
     {
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
@@ -90,7 +91,7 @@ public partial class UserService
         int updatedUsers = 0;
         foreach (string file in csvFiles)
         {
-            await CheckCancel(cancellationToken, task);
+            await CheckCancel(task);
             List<string> headerRow = new List<string>();
 
             task.MaxCsvRow = await GetRowCount(file);
@@ -120,7 +121,7 @@ public partial class UserService
 
                         while (csv.Read())
                         {
-                            await CheckCancel(cancellationToken, task);
+                            await CheckCancel(task);
 
                             Dictionary<string, string> requiredElements = new Dictionary<string, string>();
                             var currCsvRecord = csv.GetRecord<dynamic>();
@@ -222,12 +223,12 @@ public partial class UserService
         
 
     }
-    private async Task CheckCancel(CancellationToken cancellationToken, NumpInstructionSet task)
+    private async Task CheckCancel(NumpInstructionSet task)
     {
-        if (cancellationToken.IsCancellationRequested)
+        if (task.CancelToken.Token.IsCancellationRequested)
         {
             await StopTask(task, "CANCELLED");
-            throw new OperationCanceledException(cancellationToken);
+            throw new OperationCanceledException(task.CancelToken.Token);
         }
     }
     public async Task HandleNotifications(NumpInstructionSet task, TaskLog taskLog)

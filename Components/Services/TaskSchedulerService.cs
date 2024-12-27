@@ -1,78 +1,116 @@
-using nump.Components.Classes;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using nump.Components.Database;
-
+using nump.Components.Classes;
+using System.Text.Json;
 public class TaskSchedulerService
 {
-
-    protected readonly NumpContext _context;
-
-    public TaskSchedulerService(NumpContext context)
+    private readonly IServiceScopeFactory _scopeFactory;
+    private List<ScheduledTaskTimer> _timers = new List<ScheduledTaskTimer>();
+    public TaskSchedulerService(IServiceScopeFactory scopeFactory)
     {
-        _context = context;
-        Initialize();
+        _scopeFactory = scopeFactory;
     }
-
-
-    private void Initialize()
+    public class ScheduledTaskTimer
     {
+        public Timer Timer { get; set; }
+        public NumpInstructionSet Task { get; set; }
 
-        List<NumpInstructionSet> Tasks = _context.Tasks.ToList();
-        int id = 0;
-        foreach (NumpInstructionSet task in Tasks)
+        public ScheduledTaskTimer(Timer timer, NumpInstructionSet task)
         {
-            ScheduleTask(task);
-            id++;
+            Timer = timer;
+            Task = task;
         }
     }
-    public void ScheduleTask(NumpInstructionSet instruction)
+    public async Task StartSchedulingAsync()
     {
-        DateTime scheduledTime = new DateTime();
-        if (instruction._frequency.date != null && instruction._frequency.time != null)
+        // Create a scope for resolving scoped services like DbContext
+        using (var scope = _scopeFactory.CreateScope())
         {
-            scheduledTime = instruction._frequency.date.Value.ToDateTime((TimeOnly)instruction._frequency.time);
-        }
-        else if (instruction._frequency.time != null)
-        {
-            scheduledTime = GetNextDateTime((TimeOnly)instruction._frequency.time);
-        }
-        instruction.CancelToken = new CancellationTokenSource();
-        //Action task = new Action(() => Yeet(instruction, instruction.cancelToken.Token));
-        // Calculate the time remaining until the scheduled time
-        TimeSpan timeUntilTask = scheduledTime - DateTime.Now;
+            var dbContext = scope.ServiceProvider.GetRequiredService<NumpContext>();
 
-        // If the scheduled time is in the past, throw an exception
-        if (timeUntilTask <= TimeSpan.Zero)
-        {
-            Console.WriteLine("The scheduled time must be in the future.");
-            return;
-        }
+            // Fetch the list of tasks to be scheduled
+            var scheduleInfo = await dbContext.Tasks
+                .Where(x => x.Enabled == true)
+                .ToListAsync();
 
-        // Use a timer to trigger the task after the calculated time
-        Timer timer = new Timer(_ =>
-        {
-            Console.WriteLine($"Task started at {DateTime.Now}");
-        }, null, timeUntilTask, Timeout.InfiniteTimeSpan); // Only execute once
+            if (scheduleInfo != null && scheduleInfo.Any())
+            {
+                foreach (var task in scheduleInfo)
+                {
+                    await AddTimerForTask(task);
+                }
+            }
+        }
     }
 
-
-    private async Task<bool> CheckHeader(List<string> headers, List<string> requiredColumns)
+private void RemoveExistingTimerForTask(NumpInstructionSet task)
+{
+    // Find the existing ScheduledTaskTimer that matches the given task
+    var existingTimer = _timers.FirstOrDefault(st => st.Task.Guid == task.Guid);
+    if (existingTimer != null)
     {
-        return requiredColumns.All(item => headers.Contains(item, StringComparer.OrdinalIgnoreCase));
+        existingTimer.Timer.Dispose(); // Dispose of the old timer
+        _timers.Remove(existingTimer); // Remove it from the list
     }
+}
 
-    static DateTime GetNextDateTime(TimeOnly targetTime)
+    public async Task AddTimerForTask(NumpInstructionSet task)
     {
-        DateTime currentDateTime = DateTime.Now;  // Current date and time
-        DateTime todayAtTargetTime = currentDateTime.Date.Add(targetTime.ToTimeSpan());
+            RemoveExistingTimerForTask(task);
+        // Create a scope for resolving scoped services like DbContext
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<NumpContext>();
 
-        // If the target time is later today, use today's date, else use tomorrow's date
-        if (currentDateTime < todayAtTargetTime)
-        {
-            return todayAtTargetTime;  // Use today's date at the target time
+            // You can directly use the task's NextRunTime to schedule it.
+            var freq = JsonSerializer.Deserialize<Frequency>(task.Frequency);
+            if (freq?.type == 4)
+            {
+                return; // Skip task if the type is 4
+            }
+
+            // Calculate the delay time for the task
+            var delayTime = task.NextRunTime - DateTime.Now;
+
+            if (delayTime > TimeSpan.Zero)
+            {
+                // Create a new Timer for this specific task
+                var timer = new Timer(
+                    async _ => await RunScheduledTaskAsync(task, dbContext),
+                    null,
+                    delayTime,
+                    Timeout.InfiniteTimeSpan
+                );
+
+                var scheduledTaskTimer = new ScheduledTaskTimer(timer, task);
+                _timers.Add(scheduledTaskTimer);
+
+                Console.WriteLine($"{task.Name} scheduled to run at {task.NextRunTime}");
+            }
         }
-        else
+    }
+    private async Task RunScheduledTaskAsync(NumpInstructionSet task, NumpContext dbContext)
+    {
+        try
         {
-            return todayAtTargetTime.AddDays(1);  // Use tomorrow's date at the target time
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            // Resolve the UserService from the created scope
+            var userService = scope.ServiceProvider.GetRequiredService<nump.Components.Services.UserService>();
+    
+            // Now you can call ActuallyDoTask on the scoped service
+            await userService.ActuallyDoTask(task);
+        }
+        }
+        catch (Exception ex)
+        {
+            // Handle any exceptions that may occur during the task execution
+            Console.WriteLine($"Error executing task {task.Guid}: {ex.Message}");
         }
     }
 

@@ -5,6 +5,3 @@ bin/*
 bin\*
 obj/*
 obj\*
-logging.db
-logging.db-shm
-logging.db-wal

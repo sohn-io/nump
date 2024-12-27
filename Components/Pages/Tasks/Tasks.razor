@@ -173,7 +173,7 @@
     private async Task StartTask(NumpInstructionSet task)
     {
         task.CancelToken = new CancellationTokenSource();
-        await _user.ActuallyDoTask(task, task.CancelToken.Token);
+        await _user.ActuallyDoTask(task);
 
     }
     private async Task StopTask(NumpInstructionSet task)
