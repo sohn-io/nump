@@ -55,18 +55,16 @@
                 emailData.Add("clientId", clientId);
                 emailData.Add("tenantId", tenantId);
                 emailData.Add("sendAsEmail", sendAsEmail);
-                string encryptedPw = _pw.EncryptStringToBase64_Aes(clientSecret, key);
+                string encryptedPw = await _pw.EncryptStringToBase64_Aes(clientSecret, key);
                 emailData.Add("clientSecret", encryptedPw);
-                Console.WriteLine(encryptedPw);   
         }
         if (emailType == 2)
         {
                 emailData.Add("smtpServer", smtpServer);
                 emailData.Add("smtpPort", smtpPort);
                 emailData.Add("smtpUser", smtpUser);
-                string encryptedPw = _pw.EncryptStringToBase64_Aes(smtpPassword, key);
+                string encryptedPw = await _pw.EncryptStringToBase64_Aes(smtpPassword, key);
                 emailData.Add("password", encryptedPw);
-                Console.WriteLine(encryptedPw);          
         }
 
         var json = JsonSerializer.Serialize(emailData);
@@ -119,7 +117,6 @@
                 tenantId = keyValuePairs["tenantId"].ToString();
                 sendAsEmail = keyValuePairs["sendAsEmail"].ToString();
                 clientSecret = (await Retrieve("Email", "clientSecret"));
-                Console.WriteLine(clientSecret);
             }
             if (emailType == 2)
             {

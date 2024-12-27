@@ -167,7 +167,7 @@ public class PasswordService
         // Return the generated password as a string
         return new string(randomPassword.ToArray());
     }
-    public async Task GenerateKey()
+    public async Task<byte[]?> GenerateKey()
     {
         byte[] key;
         using (Aes aes = Aes.Create())
@@ -177,6 +177,7 @@ public class PasswordService
             key = aes.Key;
         }
         StoreKeyWithCredentialManager(key);
+        return key;
     }
     public void StoreKeyWithCredentialManager(byte[] key)
     {
@@ -204,13 +205,20 @@ public class PasswordService
         }
         return null;
     }
-    public string EncryptStringToBase64_Aes(string plainText, byte[] key)
+    public async Task<string> EncryptStringToBase64_Aes(string plainText, byte[]? key = null)
     {
         if (plainText == null || plainText.Length <= 0)
             throw new ArgumentNullException(nameof(plainText));
         if (key == null || key.Length <= 0)
-            throw new ArgumentNullException(nameof(key));
+        {
+            key = RetrieveKeyFromCredentialManager();
+            if (key == null)
+            {
+               key = await GenerateKey();
 
+            }
+        }
+        
         byte[] encrypted;
         byte[] iv;
 
@@ -242,7 +250,7 @@ public class PasswordService
         // Return as Base64 string
         return Convert.ToBase64String(result);
     }
-    public async Task<string> DecryptStringFromBase64_Aes(string cipherTextCombinedBase64, byte[]? key)
+    public async Task<string> DecryptStringFromBase64_Aes(string cipherTextCombinedBase64, byte[]? key = null)
     {
         if (key == null)
         {

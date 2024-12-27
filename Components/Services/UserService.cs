@@ -11,6 +11,7 @@ using CsvHelper;
 using System.Text.Json;
 using System.DirectoryServices.ActiveDirectory;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using nump.Components.Pages.Settings;
 namespace nump.Components.Services;
 public partial class UserService
 {
@@ -21,11 +22,18 @@ public partial class UserService
     protected readonly PasswordService _pw;
     public event EventHandler<TaskUpdatedEventArgs> OnTaskUpdated;
 
+    Dictionary<string, string> adData = new Dictionary<string, string>();
+
     public UserService(NumpContext context, NotifService notify, PasswordService pw)
     {
         _context = context;
         _notify = notify;
         _pw = pw;
+        Setting? setting = _context.Settings.Where(x => x.SettingName == "ActiveDirectory").FirstOrDefault();
+        if (setting != null)
+        {
+            adData = JsonSerializer.Deserialize<Dictionary<string, string>>(setting.Data);
+        }
     }
     public class TaskUpdatedEventArgs : EventArgs
     {
@@ -36,9 +44,7 @@ public partial class UserService
         }
     }
 
-    public string domain = "dc01.sohn.local";
-    public string username = "ASohn@SOHN.local";
-    public string password = "HillSeizureEdition85!";
+
     TaskLog? loggedTask;
     public List<string> samAccountNames = new List<string>();
 
@@ -312,12 +318,15 @@ public partial class UserService
     {
         if (loggedTask == null)
         {
-            loggedTask = new TaskLog();
+            loggedTask = new TaskLog()
+            {
+                RunTime = DateTime.Now,
+                TaskGuid = task.Guid,
+                TaskDisplayName = task.Name,
+                CurrentStatus = task.CurrentStatus,
+                Result = result
+            };
         }
-        Console.WriteLine("Users Created @@@" + loggedTask.CreatedUsers);
-        loggedTask.RunTime = DateTime.Now;
-        loggedTask.TaskGuid = task.Guid;
-        loggedTask.TaskDisplayName = task.Name;
         loggedTask.CurrentStatus = task.CurrentStatus;
         loggedTask.Result = result;
 
@@ -379,8 +388,11 @@ public partial class UserService
                     ouPath = tentativeOuPath;
                 }
             }
+            string? domain = adData != null ? adData["domain"] : null;
+            string? username = adData != null ? $"{adData["username"]}@{domain}" : null;
+            string? password = adData != null ? await _pw.DecryptStringFromBase64_Aes(adData["password"]) : null;
             // Define the LDAP path for your Active Directory domain
-            string ldapPath = $"LDAP://sohn.local/{ouPath}";
+            string ldapPath = $"LDAP://{domain}/{ouPath}";
             PrincipalContext context = new PrincipalContext(ContextType.Domain, "SOHN.LOCAL", ouPath, username, password);
 
             /* @@@ Account Name @@@ */
@@ -575,7 +587,7 @@ public partial class UserService
             var updatedValue = newUser.Any(k => k.Key == attribute.selectedAttribute) ? newUser[attribute.selectedAttribute] : null;
             if (updatedValue == null)
             {
-                Console.WriteLine("stop me");
+                continue;
             }
             if (attributeValue != updatedValue || attributeValue == null)
             {
@@ -602,6 +614,9 @@ public partial class UserService
     }
     public async Task<List<DirectoryEntry>>? FindUser(Dictionary<string, string>? requiredElements = null, string? ldapFilter = null)
     {
+            string? domain = adData != null ? adData["domain"] : null;
+            string? username = adData != null ? $"{adData["username"]}@{domain}" : null;
+            string? password = adData != null ? await _pw.DecryptStringFromBase64_Aes(adData["password"]) : null;
         List<DirectoryEntry> returnItem = new List<DirectoryEntry>();
         // Define the LDAP path for your Active Directory domain
         string ldapPath = $"LDAP://{domain}";
@@ -669,7 +684,6 @@ public partial class UserService
         }
 
         ldapFilterBuilder.Append(")");  // Close the AND clause
-        Console.WriteLine(ldapFilterBuilder.ToString());
         return ldapFilterBuilder.ToString();
     }
     public async Task<string> ReplaceVariablesAnonymous(string sourceString, Dictionary<string, string> items)
@@ -722,7 +736,7 @@ public partial class UserService
         {
             DateTime = DateTime.Now,
             RunId = loggedTask.Guid,
-            UserName = username,
+            UserName = user.Properties["userprincipalname"].Value.ToString(),
             UserGuid = userGuid,
             UpdatedAttribute = attribute,
             OldValue = oldValue == null ? "null" : oldValue,

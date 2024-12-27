@@ -207,7 +207,6 @@
     }
     public async Task Save()
     {
-        Console.WriteLine(newLocationList.GroupBy(x => x.sourceColumnValue).Where(x => x.Count() > 1).Count());
         newLocationList.RemoveAll(x => x.adOUGuid == null && x.sourceColumnValue == null);
         if (newLocationList.GroupBy(x => x.sourceColumnValue).Where(x => x.Count() > 1).Count() != 0)
         {
