@@ -40,8 +40,8 @@ jobs:
     - name: Get existing release ID
       id: get_release
       run: |
-        REPO="your-username/your-repo"  # Replace with your repo name
-        TAG="v1.0.0"  # Replace with the tag of the release you want to upload to
+        REPO="sohn-io/nump"  # Replace with your repo name
+        TAG="0.1"  # Replace with the tag of the release you want to upload to
         RESPONSE=$(curl -s -H "Authorization: token ${{ github.token }}" \
           "https://api.github.com/repos/$REPO/releases/tags/$TAG")
         echo "Release response: $RESPONSE"
