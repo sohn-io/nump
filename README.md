@@ -24,8 +24,14 @@ NUMP can also handle updates to existing user accounts, such as changes in role,
 - **Faster Onboarding**: New users can quickly get access to necessary resources, enhancing productivity right from the start.
 - **Improved Security**: By maintaining up-to-date and accurate user data, NUMP ensures that permissions and access are granted based on the latest user roles and department information.
 
-### TODO:
+### TODO
 - **Terminations**: Termination Options, Map CSV Value to Account Status
 - **Notifications**: Notify on User Create, Notify on User Update
 - **Robust Account Finding**: Secondary field to identify user or manager account
 
+## Installation Instructions
+1. Enable IIS Server on your host machine
+2. Install the ASP.Net Hosting Bundle from https://dotnet.microsoft.com/en-us/download/dotnet/8.0 (Under Windows --> Hosting Bundle)
+3. Drop files into a folder (e.g. C:\nump)
+4. Grant your IIS Application Pool Identity user (e.g. ApplicationPoolIdentity) Read/Write access to your NUMP folder.
+5. Start IIS
