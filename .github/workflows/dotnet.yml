@@ -30,18 +30,22 @@ jobs:
     - name: Publish
       run: dotnet publish --configuration Release --output ./publish
 
+    - name: Create zip package
+      run: |
+        mkdir -p ./bin
+        zip -r ./bin/nump.windows-amd64.zip ./publish
+
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: blazor-publish
         path: ./publish
 
-    # Step to get the release ID of the existing release
     - name: Get existing release ID
       id: get_release
       run: |
-        REPO="sohn-io/nump"  # Replace with your repo name
-        TAG="0.1"  # Replace with the tag of the release you want to upload to
+        REPO="sohn-io/nump"  
+        TAG="0.1"  
         RESPONSE=$(curl -s -H "Authorization: token ${{ github.token }}" \
           "https://api.github.com/repos/$REPO/releases/tags/$TAG")
         echo "Release response: $RESPONSE"
@@ -50,7 +54,6 @@ jobs:
         echo "RELEASE_ID=$RELEASE_ID" >> $GITHUB_ENV
         echo "UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
 
-    # Step to upload the artifact to the existing release
     - name: Upload Windows Artifact to Existing Release
       uses: actions/upload-release-asset@v1
       env:
