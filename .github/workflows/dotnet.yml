@@ -35,3 +35,13 @@ jobs:
       with:
         name: blazor-publish
         path: ./publish
+        
+    - name: upload windows artifact
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./bin/azblogfilter.windows-amd64.zip
+        asset_name: azblogfilter.windows-amd64.zip
+        asset_content_type: application/zip
