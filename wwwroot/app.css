@@ -66,8 +66,16 @@ h1:focus {
     background-color: var(--rz-body-background-color) !important;
     border: 0 !important;
 }
+.nopadding-data-list ul li{
+    padding: 0;
+
+}
 .big-button .rzi {
  font-size: 2.5rem !important;
+}
+.noscrollbar {
+    overflow-y: scroll;
+    scrollbar-width: none;
 }
 
 .task-disabled::after {

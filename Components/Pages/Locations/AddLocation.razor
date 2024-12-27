@@ -5,7 +5,8 @@
 @inject NumpContext _Context
 @inject NavigationManager _Nav
 @inject NotificationService NotificationService
-
+@inject UserService _user
+@inject DialogService DialogService
 <RadzenUpload Change="@(e => HandleFileSelected(e))" Multiple="false" />
 <RadzenRow Gap="15">
 @if (columnNamesVisible)
@@ -47,12 +48,17 @@
                     <RadzenLabel Text="File Value" Component="FirstName" />
                     <RadzenColumn Size="4" SizeMD="4">
                         <RadzenTextBox Name="FileValue" @bind-Value=location.sourceColumnValue
-                        Style="display: block; width: 100%;" />
+                        Style="display: block; width: 100%; height: 50px;" />
                     </RadzenColumn>
                     <RadzenLabel Text="AD OU (GUID)" Component="FirstName" />
                     <RadzenColumn Size="4" SizeMD="4">
-                        <RadzenMask Mask="********-****-****-****-************" Placeholder="00000000-0000-0000-0000-000000000000" 
-                    Name="ouGuid" @bind-Value="@location.adOUGuid" Style="display:block block; width: 100%;" />
+                        <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border);" Variant="Variant.Flat">
+                            @{
+                                string ouName = ous.Where(x => x.OUGuid == new Guid(location.adOUGuid)).Select(x => x.Name).FirstOrDefault();
+                            }
+                            @ouName
+                            <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenDialog(location))"></RadzenButton>
+                        </RadzenCard>
                     </RadzenColumn>
                     @if (newLocationList.Last() == location)
                     {
@@ -100,8 +106,13 @@
     List<string>? prefillGuidColumnValues = new List<string>();
 
     private List<dynamic> currentCsv = new List<dynamic>();
+    
+    List<OUMap> ous = new List<OUMap>();
 
-
+    public Dictionary<string, string> lookups = new Dictionary<string, string>()
+        {
+            {"objectClass", "organizationalUnit"}
+        };
 
     private async Task LoadLocations()
     {
@@ -164,6 +175,26 @@
         }
     }
 
+    private async Task OpenDialog(Location location)
+    {
+            var result = await DialogService.OpenAsync<OUPopup>($"Select OU",
+               new Dictionary<string, object>() { { "OUs", ous } },
+               new DialogOptions() 
+               {
+                   Resizable = true, 
+                   Draggable = true,
+                   Width = "700px", 
+                   Height = "100%",
+                   CloseDialogOnEsc = true,
+                   CloseDialogOnOverlayClick = true,
+                   ContentCssClass = "noscrollbar"
+                });
+            if (result != null)
+            {
+                location.adOUGuid = result.OUGuid.ToString();
+            }
+
+    }
     // Method to add a new location to the list
     private async Task AddNewLocation()
     {
@@ -219,5 +250,47 @@
                 _Nav.NavigateTo("/locations/add");
             }
         }
+
+
+        string ldap = await _user.BuildLdapString(lookups);
+        List<DirectoryEntry> ouDirEntry = await _user.FindUser(ldapFilter: ldap);
+        foreach (DirectoryEntry ou in ouDirEntry)
+        {
+            byte[] objectGuidByteArray = (byte[])ou.Properties["objectGuid"].Value;
+            Guid objectGuid = new Guid(objectGuidByteArray);
+            // Get the Distinguished Name (DN) of the object
+            string distinguishedName = ou.Properties["distinguishedName"].Value.ToString();
+            // Convert DN to Canonical Name format
+            string canonicalName = ConvertDistinguishedNameToCanonical(distinguishedName);
+            ous.Add(new OUMap()
+            {
+                OUGuid = objectGuid,
+                CanonicalName = canonicalName,
+                Name = ou.Name.Replace("OU=", "")
+            });
+        }
     }
+    public static string ConvertDistinguishedNameToCanonical(string distinguishedName)
+    {
+        // Split the DN by commas (e.g., CN=John Doe,OU=Employees,DC=example,DC=com)
+        var parts = distinguishedName.Split(',')
+            .Select(part => part.Trim())
+            .Where(part => !string.IsNullOrEmpty(part))
+            .ToArray();
+
+        // Extract CN and DC values separately
+        var cnPart = parts.FirstOrDefault(p => p.StartsWith("CN="))?.Substring(3); // Extract CN value
+        var ouParts = parts.Where(p => p.StartsWith("OU=")).Select(p => p.Substring(3)).ToArray(); // Extract OU values
+        var dcParts = parts.Where(p => p.StartsWith("DC=")).Select(p => p.Substring(3)).ToArray(); // Extract DC values
+
+        // Combine DC parts into the domain name (e.g., "example.com")
+        var domainName = string.Join(".", dcParts);
+        // Combine the OU and CN parts to form the full canonical name
+        var canonicalName = string.Join("/", ouParts.Concat(new[] { cnPart }).Where(x => x != null));
+
+        // Return the canonical name in the format "domain.com/OU1/OU2/.../CN"
+        return $"{domainName}/{canonicalName}";
+    }
+
+
 }

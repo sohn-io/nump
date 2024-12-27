@@ -59,6 +59,4 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapControllers();
-app.MapHub<TestHub>("/testhubplsignore");
-
 app.Run();

@@ -61,8 +61,6 @@ public partial class UserService
     }
     public async Task DoTask(NumpInstructionSet task)
     {
-        Stopwatch stopwatch = new Stopwatch();
-        stopwatch.Start();
         IngestData? ingest = await _context.IngestData.Where(x => x.Guid == task.AssocIngest).FirstAsync();
 
         task.CurrentStatus = "Running";
@@ -98,129 +96,125 @@ public partial class UserService
             OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task)); ;
             Dictionary<int, Dictionary<string, string>> csvData = new Dictionary<int, Dictionary<string, string>>();
             using (FileStream fileStream = new FileStream(file, FileMode.Open, FileAccess.Read))
+            using (StreamReader reader = new StreamReader(fileStream))
+            using (CsvReader csv = new CsvReader(reader, new CsvHelper.Configuration.CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)))
             {
-                // Create a StreamReader from the FileStream
-                using (StreamReader reader = new StreamReader(fileStream))
+                csv.Read();
+                csv.ReadHeader();
+                headerRow = csv.HeaderRecord.ToList();
+
+
+                if (!await CheckHeader(headerRow, headersToCheck))
                 {
-                    using (CsvReader csv = new CsvReader(reader, new CsvHelper.Configuration.CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)))
+
+                    await StopTask(task, "HEADER MISMATCH");
+                    return;
+                }
+                task.CurrCsvRow = 0;
+                OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task)); ;
+                int lineNumber = 0;
+
+                while (csv.Read())
+                {
+                    await CheckCancel(task);
+
+                    Dictionary<string, string> requiredElements = new Dictionary<string, string>();
+                    var currCsvRecord = csv.GetRecord<dynamic>();
+                    Dictionary<string, object> csvRecordDictionary = ConvertDynamicToDictionary(currCsvRecord);
+
+                    foreach (ADAttributeMap requiredAttribute in requiredAttributes)
                     {
-                        csv.Read();
-                        csv.ReadHeader();
-                        headerRow = csv.HeaderRecord.ToList();
+                        requiredElements.Add(requiredAttribute.selectedAttribute, csv.GetField<string>(requiredAttribute.associatedColumn));
+                    }
+                    List<DirectoryEntry> dirObjects = await FindUser(requiredElements);
 
-
-                        if (!await CheckHeader(headerRow, headersToCheck))
-                        {
-                            
-                            await StopTask(task, "HEADER MISMATCH");
-                            return;
-                        }
-                        task.CurrCsvRow = 0;
-                        OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task)); ;
-                        int lineNumber = 0;
-
-                        while (csv.Read())
-                        {
-                            await CheckCancel(task);
-
-                            Dictionary<string, string> requiredElements = new Dictionary<string, string>();
-                            var currCsvRecord = csv.GetRecord<dynamic>();
-                            Dictionary<string, object> csvRecordDictionary = ConvertDynamicToDictionary(currCsvRecord);
-
-                            foreach (ADAttributeMap requiredAttribute in requiredAttributes)
-                            {
-                                requiredElements.Add(requiredAttribute.selectedAttribute, csv.GetField<string>(requiredAttribute.associatedColumn));
-                            }
-                            List<DirectoryEntry> dirObjects = await FindUser(requiredElements);
-
-                            Dictionary<string, string> newUser = new Dictionary<string, string>()
+                    Dictionary<string, string> newUser = new Dictionary<string, string>()
                             {
                                 {"taskName", task.Name}
                             };
 
-                            if (enabledAttributes != null)
-                            {
-                                foreach (var columnItem in enabledAttributes)
-                                {
-                                    var columnValue = ((IDictionary<string, object>)currCsvRecord)[columnItem.associatedColumn].ToString();
-                                    newUser.Add(columnItem.selectedAttribute, columnValue);
-                                }
-                            }
-                            if (dirObjects != null && dirObjects.Count() > 1)
-                            {
-                                
-                                if (task.AllowSearchLogging)
-                                {
-                                    //await LogUserUpdate(task, newUser, "SEARCH", "MULTIPLE USERS FOUND");
-                                }
-                                await MoveOn(task, true);
-                                continue;
-                            }
-                            if (dirObjects == null)
-                            {
-                                if (task.AllowSearchLogging)
-                                {
-                                    //await LogUserUpdate(task, newUser, "SEARCH", "NOT FOUND");
-                                }
-                                //New user
-                                if (!task.AllowCreateAccount)
-                                {
-                                    //await LogUserUpdate(task, );
-                                    await MoveOn(task, true);
-                                    continue;
-
-                                }
-                                try
-                                {
-                                    await NewUser(ingest, conformableAttributes, csvRecordDictionary, newUser, currLocationMap, task);
-                                    createdUsers++;
-                                }
-                                catch
-                                {
-
-                                }
-                                await MoveOn(task, true);
-                                continue;
-                            }
-                            if (task.AllowSearchLogging)
-                            {
-                                // await LogUserUpdate(task, newUser, "SEARCH", "USER FOUND");
-                            }
-
-                            //update user
-                            DirectoryEntry user = dirObjects[0];
-
-                            if (!task.AllowUpdateFields)
-                            {
-                                
-                                //await LogUserUpdate(task, newUser, "UPDATE", "NOT ALLOWED");
-                                await MoveOn(task, true);
-                                continue;
-                            }
-                            int? updatedValues = await UpdateUser(conformableAttributes, newUser, user, task, csvRecordDictionary, true);
-                            if (task.CurrCsvRow != task.MaxCsvRow)
-                            {
-                                task.CurrCsvRow++;
-                            }
-                            if (updatedValues > 0)
-                            {
-                                updatedUsers++;
-                            }
-                            await MoveOn(task, false);
+                    if (enabledAttributes != null)
+                    {
+                        foreach (var columnItem in enabledAttributes)
+                        {
+                            var columnValue = csvRecordDictionary[columnItem.associatedColumn].ToString();
+                            newUser.Add(columnItem.selectedAttribute, columnValue);
                         }
-
                     }
+                    if (dirObjects != null && dirObjects.Count() > 1)
+                    {
+
+                        if (task.AllowSearchLogging)
+                        {
+                            //await LogUserUpdate(task, newUser, "SEARCH", "MULTIPLE USERS FOUND");
+                        }
+                        await MoveOn(task, true);
+                        continue;
+                    }
+                    if (dirObjects == null)
+                    {
+                        if (task.AllowSearchLogging)
+                        {
+                            //await LogUserUpdate(task, newUser, "SEARCH", "NOT FOUND");
+                        }
+                        //New user
+                        if (!task.AllowCreateAccount)
+                        {
+                            //await LogUserUpdate(task, );
+                            await MoveOn(task, true);
+                            continue;
+
+                        }
+                        try
+                        {
+                            await NewUser(ingest, conformableAttributes, csvRecordDictionary, newUser, currLocationMap, task);
+                            createdUsers++;
+                        }
+                        catch
+                        {
+
+                        }
+                        await MoveOn(task, true);
+                        continue;
+                    }
+                    if (task.AllowSearchLogging)
+                    {
+                        // await LogUserUpdate(task, newUser, "SEARCH", "USER FOUND");
+                    }
+
+                    //update user
+                    DirectoryEntry user = dirObjects[0];
+
+                    if (!task.AllowUpdateFields)
+                    {
+
+                        //await LogUserUpdate(task, newUser, "UPDATE", "NOT ALLOWED");
+                        await MoveOn(task, true);
+                        continue;
+                    }
+                    int? updatedValues = await UpdateUser(conformableAttributes, newUser, user, task, csvRecordDictionary, true);
+                    if (task.CurrCsvRow != task.MaxCsvRow)
+                    {
+                        task.CurrCsvRow++;
+                    }
+                    if (updatedValues > 0)
+                    {
+                        updatedUsers++;
+                    }
+                    await MoveOn(task, false);
                 }
 
             }
+
+
+
         }
         loggedTask.CreatedUsers = createdUsers;
         loggedTask.UpdatedUsers = updatedUsers;
 
         await HandleNotifications(task, loggedTask);
         await StopTask(task, "SUCCESSFUL");
-        stopwatch.Stop();
-        
+
 
     }
     private async Task CheckCancel(NumpInstructionSet task)
@@ -237,7 +231,7 @@ public partial class UserService
 
         if (notification == null)
         {
-            
+
             return;
         }
         Dictionary<string, string> itemsToReplace = new Dictionary<string, string>()
@@ -257,22 +251,22 @@ public partial class UserService
             Console.WriteLine("Email Not Configured!");
         }
         var data = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(emailSetting.Data);
-            string emailTypeString = data["emailType"].ToString();
-            int emailType;
-            int.TryParse(emailTypeString, out emailType);
-            string result = "";
-            if (emailType == 1)
-            {
-                string clientId = data["clientId"].ToString();
-                string clientSecretEncrypted = data["clientSecret"].ToString();
-                string clientSecret = await _pw.DecryptStringFromBase64_Aes(clientSecretEncrypted, null);
-                string tenantId = data["tenantId"].ToString();
-                string sendAsEmail = data["sendAsEmail"].ToString();
-                result = await _notify.SendEmailOAuth(notification, body, clientId, clientSecret, tenantId, sendAsEmail);
-                clientSecret = null;
-                clientSecretEncrypted = null;
+        string emailTypeString = data["emailType"].ToString();
+        int emailType;
+        int.TryParse(emailTypeString, out emailType);
+        string result = "";
+        if (emailType == 1)
+        {
+            string clientId = data["clientId"].ToString();
+            string clientSecretEncrypted = data["clientSecret"].ToString();
+            string clientSecret = await _pw.DecryptStringFromBase64_Aes(clientSecretEncrypted, null);
+            string tenantId = data["tenantId"].ToString();
+            string sendAsEmail = data["sendAsEmail"].ToString();
+            result = await _notify.SendEmailOAuth(notification, body, clientId, clientSecret, tenantId, sendAsEmail);
+            clientSecret = null;
+            clientSecretEncrypted = null;
 
-            }
+        }
         Guid logged = await SaveNotificationLog(notification, result);
     }
     private async Task<int> GetRowCount(string file)
@@ -381,7 +375,7 @@ public partial class UserService
                 string tentativeOuPath = await GetOUDistinguishedName(currentIngest, csvRecord, locationMap);
                 if (tentativeOuPath != null && tentativeOuPath != String.Empty && tentativeOuPath != "")
                 {
-                    
+
                     ouPath = tentativeOuPath;
                 }
             }
@@ -411,7 +405,7 @@ public partial class UserService
                     user.Add("manager", await ReplaceVariablesAnonymous(currentIngest.managerOption.value, user));
                     break;
                 case "Column":
-                Dictionary<string, string> requiredElements = new Dictionary<string, string>()
+                    Dictionary<string, string> requiredElements = new Dictionary<string, string>()
                 {
                     {currentIngest.managerOption.sourceColumn, csvRecord[currentIngest.managerOption.value].ToString()}
                 };
@@ -422,7 +416,7 @@ public partial class UserService
                     }
                     else
                     {
-                        
+
                     }
                     break;
                 default:
@@ -439,7 +433,7 @@ public partial class UserService
                 Description = user.ContainsKey("description") ? user["description"] : null,
                 EmailAddress = user.ContainsKey("mail") ? user["mail"] : null,
                 AccountExpirationDate = task.AccountExpirationDays > 0 ? DateTime.Now.AddDays(task.AccountExpirationDays) : null
-    
+
             };
             newUserPrincipal.PasswordNotRequired = false;
 
@@ -463,7 +457,7 @@ public partial class UserService
             }
             for (int i = 0; i < 5; i++)
             {
-                
+
             }
 
             newUserPrincipal.SetPassword(acctPassword);
@@ -486,20 +480,20 @@ public partial class UserService
             }
             catch
             {
-            
+
                 newUserPrincipal.Delete();
                 newUserPrincipal.Save();
                 await LogUserCreate(task, newUser, "FAILED", null, csvRecord);
             }
-            
+
 
         }
 
         catch (COMException comEx)
         {
-            
+
             // Optionally, log the HRESULT or other details from the exception
-            
+
         }
     }
 
@@ -525,7 +519,7 @@ public partial class UserService
                     {
                         tentativeUPN = sourceUpn + i;
                         upn["cn"] = tentativeUPN;
-                        
+
                         existingUser = await FindUser(upn);
                         i++;
                     } while (existingUser != null);
@@ -549,7 +543,7 @@ public partial class UserService
         }
         catch (Exception ex)
         {
-            
+
         }
         if (locationValue == "")
         {
@@ -603,10 +597,10 @@ public partial class UserService
         {
             await LogUserUpdate(task, user, "UPDATE", "SUCCESSFUL", "SUCCESSFUL", csvRecord);
         }
-            user.CommitChanges();
+        user.CommitChanges();
         return updatedValues;
     }
-    public async Task<List<DirectoryEntry>>? FindUser(Dictionary<string, string> requiredElements)
+    public async Task<List<DirectoryEntry>>? FindUser(Dictionary<string, string>? requiredElements = null, string? ldapFilter = null)
     {
         List<DirectoryEntry> returnItem = new List<DirectoryEntry>();
         // Define the LDAP path for your Active Directory domain
@@ -618,10 +612,11 @@ public partial class UserService
         entry.Password = password;
 
 
+        if (ldapFilter == null && requiredElements != null)
+        {
+            ldapFilter = await BuildLdapString(requiredElements);
+        }
 
-
-        string ldapFilter = await BuildLdapString(requiredElements);
-        
 
         // Create a DirectorySearcher to search the directory using the filter
         DirectorySearcher searcher = new DirectorySearcher(entry)
@@ -643,9 +638,9 @@ public partial class UserService
         // Return the DirectoryEntry if a result is found
         return returnItem; // null if no result
     }
-    public async Task<string> BuildLdapString(Dictionary<string, string> requiredElements)
+    public async Task<string> BuildLdapString(Dictionary<string, string> requiredElements, char matcher = '&')
     {
-        var ldapFilterBuilder = new StringBuilder("(&");  // Start the AND clause
+        var ldapFilterBuilder = new StringBuilder("(" + matcher);  // Start the AND clause
 
         foreach (var requiredElement in requiredElements)
         {
@@ -664,7 +659,7 @@ public partial class UserService
                 }
                 catch
                 {
-                    
+
                 }
 
             }
@@ -674,7 +669,7 @@ public partial class UserService
         }
 
         ldapFilterBuilder.Append(")");  // Close the AND clause
-
+        Console.WriteLine(ldapFilterBuilder.ToString());
         return ldapFilterBuilder.ToString();
     }
     public async Task<string> ReplaceVariablesAnonymous(string sourceString, Dictionary<string, string> items)
@@ -699,7 +694,7 @@ public partial class UserService
             if (propertyName.Contains("@"))
             {
                 dateFormat = propertyName.Split("@")[1];
-                
+
             }
             switch (propertyName)
             {
@@ -773,7 +768,7 @@ public partial class UserService
         if (obj is byte[] byteArray && byteArray.Length == 16)
         {
             Guid guid = new Guid(byteArray);
-            
+
             return guid;
         }
         return Guid.Empty;
