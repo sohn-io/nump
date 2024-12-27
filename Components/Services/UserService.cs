@@ -29,11 +29,6 @@ public partial class UserService
         _context = context;
         _notify = notify;
         _pw = pw;
-        Setting? setting = _context.Settings.Where(x => x.SettingName == "ActiveDirectory").FirstOrDefault();
-        if (setting != null)
-        {
-            adData = JsonSerializer.Deserialize<Dictionary<string, string>>(setting.Data);
-        }
     }
     public class TaskUpdatedEventArgs : EventArgs
     {
@@ -388,12 +383,13 @@ public partial class UserService
                     ouPath = tentativeOuPath;
                 }
             }
-            string? domain = adData != null ? adData["domain"] : null;
-            string? username = adData != null ? $"{adData["username"]}@{domain}" : null;
-            string? password = adData != null ? await _pw.DecryptStringFromBase64_Aes(adData["password"]) : null;
+            Dictionary<string, string> creds = await GetCreds();
+            List<DirectoryEntry> returnItem = new List<DirectoryEntry>();
             // Define the LDAP path for your Active Directory domain
-            string ldapPath = $"LDAP://{domain}/{ouPath}";
-            PrincipalContext context = new PrincipalContext(ContextType.Domain, "SOHN.LOCAL", ouPath, username, password);
+            string ldapPath = $"LDAP://" + creds["domain"] + "/" + ouPath;
+            string username = creds.ContainsKey("username") ? creds["username"] : null;
+            string password = creds.ContainsKey("password") ? creds["password"] : null;
+            PrincipalContext context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath, username, password);
 
             /* @@@ Account Name @@@ */
             string sam = await FindValidUsername(currentIngest.accountOption, user);
@@ -612,19 +608,56 @@ public partial class UserService
         user.CommitChanges();
         return updatedValues;
     }
+    public async Task<Dictionary<string, string>> GetCreds()
+    {
+
+        Dictionary<string, string> adSetting = new Dictionary<string, string>();
+        Setting? setting = _context.Settings.Where(x => x.SettingName == "ActiveDirectory").FirstOrDefault();
+        if (setting != null)
+        {
+            adSetting = JsonSerializer.Deserialize<Dictionary<string, string>>(setting.Data);
+
+        }
+
+        if (!adSetting.ContainsKey("domain"))
+        {
+            try
+            {
+                adSetting.Add("domain", Domain.GetCurrentDomain().Name);
+            }
+
+            catch
+            {
+                Console.WriteLine("not on a domain probs");
+                return new Dictionary<string, string>();
+            }
+
+        }
+        if (adSetting.ContainsKey("password"))
+        {
+            try
+            {
+                adSetting["password"] = await _pw.DecryptStringFromBase64_Aes(adSetting["password"]);
+            }
+            catch
+            {
+                Console.WriteLine("cant decrypt probs");
+            }
+        }
+
+        return adSetting;
+    }
     public async Task<List<DirectoryEntry>>? FindUser(Dictionary<string, string>? requiredElements = null, string? ldapFilter = null)
     {
-            string? domain = adData != null ? adData["domain"] : null;
-            string? username = adData != null ? $"{adData["username"]}@{domain}" : null;
-            string? password = adData != null ? await _pw.DecryptStringFromBase64_Aes(adData["password"]) : null;
+        Dictionary<string, string> creds = await GetCreds();
         List<DirectoryEntry> returnItem = new List<DirectoryEntry>();
         // Define the LDAP path for your Active Directory domain
-        string ldapPath = $"LDAP://{domain}";
+        string ldapPath = $"LDAP://" + creds["domain"];
 
         // Create a DirectoryEntry object with the LDAP path
         DirectoryEntry entry = new DirectoryEntry(ldapPath);
-        entry.Username = username;
-        entry.Password = password;
+        entry.Username = creds.ContainsKey("username") ? creds["username"] : null;
+        entry.Password = creds.ContainsKey("password") ? creds["password"] : null;
 
 
         if (ldapFilter == null && requiredElements != null)

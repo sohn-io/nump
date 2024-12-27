@@ -36,8 +36,22 @@
             </RadzenStack>
             <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
             <RadzenLabel Text="Default OU" Component="FirstName" />
-            <RadzenMask Mask="********-****-****-****-************" Placeholder="00000000-0000-0000-0000-000000000000" 
-                     @bind-Value="@newLocation.defaultLocation" />
+            <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border); min-width: 200px;" Variant="Variant.Flat">
+                @{
+                    string? ouName = string.IsNullOrEmpty(newLocation.defaultLocation) || !Guid.TryParse(newLocation.defaultLocation, out Guid parsedGuid)
+                        ? null
+                        : ous.Where(x => x.OUGuid == parsedGuid)
+                             .Select(x => x.Name)
+                             .FirstOrDefault();
+                    if (ouName != null)
+                    {
+                        @ouName
+                    }
+                    
+                }
+                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenDialog(locationMap: newLocation))"></RadzenButton>
+            </RadzenCard>
+
             </RadzenStack>
             <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" />
 
@@ -54,9 +68,17 @@
                     <RadzenColumn Size="4" SizeMD="4">
                         <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border);" Variant="Variant.Flat">
                             @{
-                                string ouName = ous.Where(x => x.OUGuid == new Guid(location.adOUGuid)).Select(x => x.Name).FirstOrDefault();
+                                string? ouName = string.IsNullOrEmpty(location.adOUGuid) || !Guid.TryParse(location.adOUGuid, out Guid parsedGuid)
+                                    ? null
+                                    : ous.Where(x => x.OUGuid == parsedGuid)
+                                         .Select(x => x.Name)
+                                         .FirstOrDefault();
+                                if (ouName != null)
+                                {
+                                    @ouName
+                                }
+                                
                             }
-                            @ouName
                             <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenDialog(location))"></RadzenButton>
                         </RadzenCard>
                     </RadzenColumn>
@@ -175,7 +197,7 @@
         }
     }
 
-    private async Task OpenDialog(Location location)
+    private async Task OpenDialog(Location? location = null, LocationMap? locationMap = null)
     {
             var result = await DialogService.OpenAsync<OUPopup>($"Select OU",
                new Dictionary<string, object>() { { "OUs", ous } },
@@ -189,9 +211,13 @@
                    CloseDialogOnOverlayClick = true,
                    ContentCssClass = "noscrollbar"
                 });
-            if (result != null)
+            if (result != null && location != null)
             {
                 location.adOUGuid = result.OUGuid.ToString();
+            }
+            if (result != null && locationMap != null)
+            {
+                locationMap.defaultLocation = result.OUGuid.ToString();
             }
 
     }
