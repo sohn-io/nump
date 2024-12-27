@@ -1,0 +1,134 @@
+@page "/settings/email"
+@inject PasswordService _pw
+@inject NumpContext _context
+@using System.Text.Json
+    <RadzenRadioButtonList @bind-Value=@emailType TValue="int">
+        <Items>
+            <RadzenRadioButtonListItem Text="M365 OAuth" Value="1" />
+            <RadzenRadioButtonListItem Text="SMTP" Value="2" />
+        </Items>
+    </RadzenRadioButtonList>
+
+@if (emailType == 1)
+{
+    <RadzenTextBox Placeholder="Client Id" @bind-Value=@clientId />
+    <RadzenPassword Placeholder="Client Secret" @bind-Value=@clientSecret />
+    <RadzenTextBox Placeholder="Tenant ID" @bind-Value=@tenantId />
+    <RadzenTextBox Placeholder="Sending Address" @bind-Value=@sendAsEmail />
+} else if (emailType == 2)
+{
+    <RadzenTextBox Placeholder="SMTP Server" @bind-Value=@smtpServer />
+    <RadzenNumeric Placeholder="Port" Max="65536" @bind-Value=@smtpPort />
+    <RadzenTextBox Placeholder="Username" @bind-Value=@smtpUser />
+    <RadzenPassword Placeholder="Password" @bind-Value=@smtpPassword />
+}
+    <RadzenButton Variant="Variant.Text" Icon="Save" Click="@(() => Save())" />
+
+@code {
+    Dictionary<string, dynamic> emailData = new Dictionary<string, dynamic>();
+    int emailType = 0;
+
+    string? clientId;
+    string? clientSecret;
+    string? tenantId;
+    string? sendAsEmail;
+
+    string? smtpServer;
+    int? smtpPort = 587;
+    string? smtpUser;
+    string? smtpPassword;
+
+    private async Task Save()
+    {
+        emailData = new Dictionary<string, dynamic>();
+            
+        emailData.Add("emailType", emailType);
+        byte[]? key =  _pw.RetrieveKeyFromCredentialManager();
+        if (key == null || key.Length == 0)
+        {
+            await _pw.GenerateKey();
+            key = _pw.RetrieveKeyFromCredentialManager();
+        }
+        if (emailType == 1)
+        {
+            
+                emailData.Add("clientId", clientId);
+                emailData.Add("tenantId", tenantId);
+                emailData.Add("sendAsEmail", sendAsEmail);
+                string encryptedPw = _pw.EncryptStringToBase64_Aes(clientSecret, key);
+                emailData.Add("clientSecret", encryptedPw);
+                Console.WriteLine(encryptedPw);   
+        }
+        if (emailType == 2)
+        {
+                emailData.Add("smtpServer", smtpServer);
+                emailData.Add("smtpPort", smtpPort);
+                emailData.Add("smtpUser", smtpUser);
+                string encryptedPw = _pw.EncryptStringToBase64_Aes(smtpPassword, key);
+                emailData.Add("password", encryptedPw);
+                Console.WriteLine(encryptedPw);          
+        }
+
+        var json = JsonSerializer.Serialize(emailData);
+        var existingSetting = await _context.Settings.FirstOrDefaultAsync(x => x.SettingName == "Email");
+        if (existingSetting != null)
+        {
+            existingSetting.Data = json;
+            _context.Settings.Update(existingSetting);
+
+        }
+        else
+        {
+            Setting setting = new Setting()
+            {
+                SettingName = "Email",
+                Data = json
+            };
+            _context.Settings.Add(setting);
+        }
+        await _context.SaveChangesAsync();
+
+    }
+    public async Task<string> Retrieve(string settingName, string keyName)
+    {
+        Setting setting = await _context.Settings.Where(x => x.SettingName == settingName).FirstOrDefaultAsync();
+        if (setting != null)
+        {
+            byte[] key = _pw.RetrieveKeyFromCredentialManager();
+            Dictionary<string, dynamic> keyValuePairs = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(setting.Data);
+                var test = keyValuePairs[keyName];
+                string rawValue = test.ToString();
+            return await _pw.DecryptStringFromBase64_Aes(rawValue, key);
+        }
+        return null;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Setting setting = await _context.Settings.Where(x => x.SettingName == "Email").FirstOrDefaultAsync();
+        if (setting != null)
+        {
+            Dictionary<string, dynamic> keyValuePairs = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(setting.Data);
+            
+            string emailTypeString = keyValuePairs["emailType"].ToString();
+            int.TryParse(emailTypeString, out emailType);
+            
+            if (emailType == 1)
+            {
+                clientId = keyValuePairs["clientId"].ToString();
+                tenantId = keyValuePairs["tenantId"].ToString();
+                sendAsEmail = keyValuePairs["sendAsEmail"].ToString();
+                clientSecret = (await Retrieve("Email", "clientSecret"));
+                Console.WriteLine(clientSecret);
+            }
+            if (emailType == 2)
+            {
+                smtpServer = keyValuePairs["smtpServer"].ToString();
+                smtpPort = keyValuePairs["smtpPort"].ToString();
+                smtpUser = keyValuePairs["smtpUser"].ToString();
+                smtpPassword = (await Retrieve("Email", "password"));
+            }
+        }
+    }
+}
+

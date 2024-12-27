@@ -1,0 +1,10 @@
+nump.db
+nump.db-shm
+nump.db-wal
+bin/*
+bin\*
+obj/*
+obj\*
+logging.db
+logging.db-shm
+logging.db-wal

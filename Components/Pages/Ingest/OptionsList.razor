@@ -1,0 +1,51 @@
+<RadzenCard class="rz-mb-4">
+    <RadzenRow Gap="10" class="rz-pb-4">
+        <RadzenStack Orientation="Orientation.Vertical" Gap="0">
+            <RadzenRow Gap="10">
+                <RadzenIcon Icon="@Icon" />
+                <RadzenText TextStyle="TextStyle.DisplayH5">@Title</RadzenText>
+            </RadzenRow>
+            <RadzenText TextStyle="TextStyle.Caption">@Description</RadzenText>
+        </RadzenStack>
+    </RadzenRow>
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+        JustifyContent="JustifyContent.Normal" Gap="1rem" Wrap="FlexWrap.Wrap" class="rz-mb-2">
+        @if (Options != null && OptionItem != null)
+        {
+        
+        <RadzenDropDown Data="@Options" TextProperty="Key" ValueProperty="Value" TValue="string" @bind-Value=@OptionItem.option />
+            @if (OptionItem.option == "NONE")
+            {
+                OptionItem.value = String.Empty;
+            }
+            <RadzenTextBox @bind-Value=@OptionItem.value Disabled=@(OptionItem.option == "NONE")></RadzenTextBox>
+        }
+    </RadzenStack>
+    @ChildContent
+</RadzenCard>
+
+@code {
+    [Parameter]
+    public string Title {get; set;}
+
+    [Parameter]
+    public string Icon {get; set;}
+
+    [Parameter]
+    public string? Description {get; set;}
+    
+    [Parameter]
+    public IDictionary<string, string>? Options {get; set;}
+
+    [Parameter]
+    public Option? OptionItem {get; set;}
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+
+    private void ClearOption(Option option)
+    {
+        option.value = String.Empty;
+        Console.WriteLine(option.option);
+    }
+}

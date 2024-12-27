@@ -1,0 +1,18 @@
+<RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
+    <RadzenLabel Component="LabelBox" Text="@LabelText" />
+    <RadzenTextBox @bind-value="@Bind" Placeholder="@Placeholder" Name="LabelBox" />
+</RadzenStack>
+
+
+
+@code {
+
+    [Parameter]
+    public string LabelText { get; set; }
+
+    [Parameter]
+    public string Bind {get; set;}
+
+    [Parameter]
+    public string? Placeholder { get; set; }
+}

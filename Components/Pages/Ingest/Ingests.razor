@@ -1,0 +1,108 @@
+@page "/ingests"
+@inject NumpContext _Context
+@inject NavigationManager _Nav
+
+<RadzenRow Gap="15">
+    @foreach (IngestData ingest in currentIngests)
+    {
+        <RadzenColumn SizeXS="12" SizeMD="3" SizeLG="3" SizeXL="2" class="h-100">
+            <RadzenCard
+                style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative; overflow: hidden;"
+                class="rz-shadow-4">
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="0" class="rz-mb-4">
+                    <RadzenText Text="@ingest.name" TextStyle="TextStyle.H3" />
+                    <RadzenText Text="@ingest.description" TextStyle="TextStyle.Body1" />
+                </RadzenStack>
+                        <RadzenText TextStyle="TextStyle.H6" Text="General"></RadzenText>
+                        <ul>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">Copies files from
+                                    <strong>@ingest.fileLocation</strong>
+                                </RadzenText>
+                            </li>
+                            @if (ingest.locationMap != null)
+                            {
+                                string AssocLocMap = _Context.LocationMaps.Where(lm => lm.Guid ==
+                                ingest.locationMap).FirstOrDefault().name;
+                                <li>
+                                    <RadzenText TextStyle="TextStyle.Body2">Associated Location Map:
+                                        <strong>@AssocLocMap</strong>
+                                    </RadzenText>
+
+                                </li>
+                            }
+                        </ul>
+                        <RadzenText TextStyle="TextStyle.H6" Text="Attributes" />
+                        <ul>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2"><strong>@ingest.attributeMap.Count()</strong> Mapped
+                                    </RadzenText>
+                            </li>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2"><strong>@ingest.attributeMap.Where(x => x.enabled == true).Count()</strong> Enabled
+                                    </RadzenText>
+                            </li>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2"><strong>@ingest.attributeMap.Where(x => x.allowUpdate == true).Count()</strong> Updatable
+                                    </RadzenText>
+                            </li>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2"><strong>@ingest.attributeMap.Where(x => x.required == true).Count()</strong> Matchable </RadzenText>
+                            </li>
+                        </ul>
+
+                <div style="margin-top: auto; align-self: flex-end; position: absolute; bottom: 10px; right: 10px;">
+                    <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="edit" Variant="Variant.Outlined"
+                        Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1"
+                        Click="@(args => EditRow(ingest))" @onclick:stopPropagation="true" />
+
+                    <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Outlined"
+                        Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1"
+                        Click="@(args => DeleteRow(ingest))" @onclick:stopPropagation="true">
+                    </RadzenButton>
+                </div>
+            </RadzenCard>
+        </RadzenColumn>
+    }
+    <RadzenColumn SizeXS="12" SizeMD="3" SizeLG="3" SizeXL="2" class="h-100">
+        <RadzenCard Variant="Variant.Outlined"
+            style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative; padding: 0% !important;"
+            class="rz-shadow-4">
+            <RadzenButton Icon="add_circle" class="w-100 h-100 big-button" Size="ButtonSize.Large"
+                ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Click="AddNew"
+                style="padding: 16px !important" />
+        </RadzenCard>
+    </RadzenColumn>
+</RadzenRow>
+
+@code {
+    List<IngestData> currentIngests = new List<IngestData>();
+
+    async Task DeleteRow(IngestData ingest)
+    {
+        if (currentIngests.Contains(ingest))
+        {
+            _Context.Remove<IngestData>(ingest);
+
+            _Context.SaveChanges();
+
+        }
+        currentIngests = await GetCurrentIngestsAsync();
+    }
+    async Task EditRow(IngestData ingest)
+    {
+        _Nav.NavigateTo($"/ingests/edit/{ingest.Guid}");
+    }
+    async Task<List<IngestData>> GetCurrentIngestsAsync()
+    {
+        return await _Context.IngestData.ToListAsync();
+    }
+    void AddNew()
+    {
+        _Nav.NavigateTo("/ingests/add");
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        currentIngests = await _Context.IngestData.ToListAsync();
+    }
+}

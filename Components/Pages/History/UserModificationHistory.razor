@@ -1,0 +1,49 @@
+@page "/history/user/{TaskRunId:guid}"
+@inject NavigationManager _Nav
+@inject NumpContext _context
+@inject DialogService DialogService
+<RadzenRow>
+    <RadzenColumn Size="4">
+        <RadzenText TextStyle="TextStyle.DisplayH4" Text="User Modification History" />
+        <RadzenDataGrid Data="@userLogs" TItem="UserUpdateLog">
+            <Columns>
+                <RadzenDataGridColumn TItem="UserUpdateLog" Property="DateTime" Title="Date/Time" />
+                <RadzenDataGridColumn TItem="UserUpdateLog" Property="UserName" Title="User" />
+                <RadzenDataGridColumn TItem="UserUpdateLog" Property="UpdatedAttribute" Title="Attribute Updated" />
+                <RadzenDataGridColumn TItem="UserUpdateLog" Property="OldValue" Title="Old Value" />
+                <RadzenDataGridColumn TItem="UserUpdateLog" Property="NewValue" Title="New Value" />
+                
+                <RadzenDataGridColumn TItem="UserUpdateLog">
+                    <Template Context="userLog">
+                        @if (userLog.CsvUserObject != null)
+                        {
+                            <RadzenButton Text="View CSV Data" Variant="Variant.Text" Click="@(() => ViewCSVData(userLog))" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenColumn>
+</RadzenRow>
+@code {
+    [Parameter] public Guid? TaskRunId { get; set; }
+
+    private List<UserUpdateLog> userLogs = new List<UserUpdateLog>();
+    protected override async Task OnInitializedAsync()
+    {
+        if (TaskRunId == null)
+        {
+            _Nav.NavigateTo("/");
+        }
+        userLogs = await _context.UserUpdateLogs.Where(x => x.RunId == TaskRunId).OrderByDescending(x => x.DateTime).ToListAsync();
+    }
+    void ViewCSVData(UserUpdateLog userLog)
+    {
+        if (userLog.CsvUserObject == null)
+        {
+            return;
+        }
+        DialogService.Open<CSVDataDialog>("CSV Data", new Dictionary<string, object>() { { "CSVData", userLog._csvObject } }, 
+            new DialogOptions() { Width = "800px", CloseDialogOnEsc = true, CloseDialogOnOverlayClick = true, });
+    }
+}

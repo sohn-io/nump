@@ -1,0 +1,409 @@
+@page "/ingests/add"
+@page "/ingests/edit/{existingGuid:guid}"
+@inject NumpContext _Context
+@inject NavigationManager _Nav
+@inject SaveService<IngestData> _Save
+@using System.Text.Json
+<!--<RadzenColumn SizeXS="12" SizeMD="2" SizeLG="2">
+    <RadzenUpload Multiple="false"
+        InputAttributes="@(new Dictionary<string,object>(){ { "aria-label", "select file" }})" />
+</RadzenColumn>-->
+
+<RadzenTemplateForm Data="@newIngest" Submit="@(() => Save())" TItem="IngestData">
+    <RadzenRow>
+        <RadzenColumn SizeXS="12" SizeMD="6" SizeLG="4">
+            <OptionsList Title="General" Icon="settings">
+                <RadzenRow Gap="20" AlignItems="AlignItems.Center">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
+                        <RadzenLabel Component="LabelBox" Text="Ingest Name" />
+                        <RadzenTextBox @bind-value="@newIngest.name"  Name="LabelBox" />
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
+                        <RadzenLabel Component="LabelBox" Text="Description" />
+                        <RadzenTextBox @bind-value="@newIngest.description" Name="LabelBox" />
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
+                        <RadzenLabel Component="LabelBox" Text="File Location" />
+                        <RadzenTextBox @bind-value="@newIngest.fileLocation"  Name="LabelBox" />
+                    </RadzenStack>
+                    <RadzenRow JustifyContent="JustifyContent.Right">
+                        <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Text" Size="ButtonSize.Medium" />
+                    </RadzenRow>
+                </RadzenRow>
+            </OptionsList>
+            <OptionsList Title="Account" Icon="account_circle" Description="Account Creation Options">
+                <RadzenStack Orientation="Orientation.Vertical" Gap="10" style="max-width: 700px;">
+                    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="20">
+                        <div style="width: 200px;">
+                            <RadzenLabel Text="Account Name" style="display:inline-block;" />
+                        </div>
+                        <RadzenDropDown Data="@accountNameOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@accountOptions.CreationType" Name="AssocAccName" />
+                        <RadzenTextBox @bind-Value="@accountOptions.CreationValue" Name="AssocAccDesc" />
+                    </RadzenRow>
+                    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="20">
+                        <div style="width: 200px;">
+                            <RadzenLabel Text="Account Description" style="display:inline-block;" />
+                        </div>
+                        <RadzenDropDown Data="@accountNameOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@accountOptions.AccountDescriptionType" Name="AssocAccName" />
+                        <RadzenTextBox @bind-Value="@accountOptions.AccountDescriptionValue" Name="AssocAccDesc" />
+                    </RadzenRow>
+
+                    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="20">
+                        <div style="width: 200px;">
+                            <RadzenLabel Text="Display Name" style="display:inline-block;" />
+                        </div>
+                        <RadzenDropDown Data="@accountNameOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@accountOptions.DisplayNameType" Name="AssocAccName" />
+                        <RadzenTextBox @bind-Value="@accountOptions.DisplayNameValue" Name="AssocAccDesc" />
+                    </RadzenRow>
+
+
+
+
+                </RadzenStack>
+            </OptionsList>  
+            <OptionsList Title="Password" Icon="key" Description="Password Creation">
+                <RadzenStack Orientation="Orientation.Vertical" Gap="10" style="max-width: 700px;" class="rz-mb-4">
+                    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" Gap="20">
+                        <div style="width: 200px;">
+                            <RadzenLabel Text="Password Creation" />
+                        </div>
+                        <RadzenDropDown Data="@passwordGenerationOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@accountOptions.PasswordCreationType" Name="AssocAccName" style="overflow-x: hidden;" />
+                    </RadzenRow>
+                    @if (accountOptions.PasswordCreationType == "Column" || accountOptions.PasswordCreationType == "Custom")
+                    {
+                        <RadzenTextBox @bind-Value="@accountOptions.PasswordCreationValue" Name="AssocAccDesc" />
+                    }
+                </RadzenStack>
+                    @if (accountOptions.PasswordCreationType == "RandomPassword" || accountOptions.PasswordCreationType == "RandomPassphrase")
+                    {
+                        string word = "Password";
+                        string otherword = "characters";
+                        if (accountOptions.PasswordCreationType == "RandomPassphrase")
+                        {
+                             word = "Passphrase";
+                             otherword = "words";
+                        }
+                        <RadzenText>@word length between <RadzenNumeric @bind-Value=@passwordOptions.minLength Max="99" style="width: 65px"/> 
+                        and <RadzenNumeric @bind-Value=@passwordOptions.maxLength Min="@passwordOptions.minLength" style="width: 65px"/> @otherword
+                        </RadzenText>
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="20">
+                            <RadzenRow AlignItems="AlignItems.Center">
+                                <RadzenText>Numbers</RadzenText>
+                                <RadzenNumeric @bind-Value=@passwordOptions.numbers Min="0" />
+                            </RadzenRow>
+                            <RadzenRow AlignItems="AlignItems.Center">
+                                <RadzenText>Special Characters</RadzenText>
+                                <RadzenNumeric @bind-Value=@passwordOptions.specialChars Min="0" />
+                            </RadzenRow>
+                            <RadzenRow AlignItems="AlignItems.Center">
+                                <RadzenText>Uppercase</RadzenText>
+                                <RadzenNumeric @bind-Value=@passwordOptions.uppercase Min="0" Max="@passwordOptions.maxLength"/>
+                            </RadzenRow>
+                            @if (accountOptions.PasswordCreationType == "RandomPassphrase")
+                            {
+                                <RadzenRow AlignItems="AlignItems.Center">
+                                    <RadzenText>Separator</RadzenText>
+                                    <RadzenTextBox @bind-Value=@passwordOptions.separator style="width: 65px"/>
+                                </RadzenRow>
+                            }
+                        </RadzenStack>
+                        }
+            </OptionsList>
+            <OptionsList Title="Email Address" Icon="mail" Description="Generate Email Address" Options="@emailOptions" OptionItem="@emailOption"/>        
+            <OptionsList Title="Manager" Icon="supervisor_account" Description="Set manager on account">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                    JustifyContent="JustifyContent.Normal" Gap="1rem" Wrap="FlexWrap.Wrap" class="rz-mb-2">
+                    <RadzenDropDown Data="@managerOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@managerOption.option" Name="AssocAccName" />
+                    <RadzenTextBox @bind-Value=@managerOption.value />
+                    <RadzenDropDown Data="@managerAdAttributeOptions" TextProperty="Key" ValueProperty="Value" @bind-Value=@managerOption.sourceColumn  />
+                </RadzenStack>
+            </OptionsList>
+            <OptionsList Title="Location" Icon="location_on" Description="Map Column to AD Location">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="20">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="10">
+                        <RadzenLabel Text="Location Column" />
+                        <RadzenTextBox @bind-Value=@newIngest.adLocationColumn />
+                    </RadzenStack>
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="10">
+                        <RadzenLabel Text="Location Map" />
+                        <RadzenDropDown Data="@existingLocationMaps" TextProperty="Name" ValueProperty="Guid" TValue="Guid"
+                        @bind-Value="@newIngest.locationMap" Placeholder="Select Location Map" Name="AssocLocMap" />
+                    </RadzenStack>
+                </RadzenStack>
+            </OptionsList>
+    
+        </RadzenColumn>
+        <RadzenColumn SizeXS="12" SizeMD="6">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+                <RadzenButton Click="@(() => AddNewADAttribute())" Icon="add" Variant="Variant.Text" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Base" />
+                <RadzenButton Click="@(() => DeleteAllAttributes())" Icon="delete" Variant="Variant.Text" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Danger" />
+            </RadzenStack>
+            <RadzenDropZoneContainer TItem="ADAttributeMap" Data="@attributeMaps" ItemSelector="@ItemSelector" Drop="@OnDrop">
+                <ChildContent>
+                    <RadzenDropZone Value="Status.Test" Style="flex: 1; gap: 1rem;">
+                    </RadzenDropZone>
+                </ChildContent>
+                <Template Context="adAttribute">
+                    <RadzenCard class="rz-mb-4">
+                        <RadzenRow RowGap="10">
+                            <RadzenColumn SizeXS="12" SizeSM="6" SizeLG="4">
+                                <RadzenStack Orientation="Orientation.Vertical">
+                                    <RadzenText Text="AD Attribute" TextStyle="TextStyle.Body2" />
+                                    <RadzenDropDown Data="@ADAttributes" TValue="string" TextProperty="Key"
+                                        ValueProperty="Value" @bind-Value=@adAttribute.selectedAttribute Disabled=@(!adAttribute.enabled) />
+                                </RadzenStack>
+                            </RadzenColumn>
+                            <RadzenColumn SizeXS="12" SizeSM="6" SizeLG="5">
+                                <RadzenStack Orientation="Orientation.Vertical">
+                                    <RadzenText Text="Data Column" TextStyle="TextStyle.Body2" />
+                                    <RadzenTextBox @bind-Value=@adAttribute.associatedColumn class="width: auto;" Disabled=@(!adAttribute.enabled) />
+                                </RadzenStack>
+                            </RadzenColumn>
+                            <RadzenColumn SizeXS="12" SizeSM="6" SizeMD="3" SizeLG="2">
+                                <RadzenStack Orientation="Orientation.Vertical" Gap="0.5rem">
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                        JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="Enabled" TextStyle="TextStyle.Body2" />
+                                        <RadzenSwitch @bind-value=@adAttribute.enabled  />
+                                    </RadzenStack>
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                        JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="Allow Update" TextStyle="TextStyle.Body2" />
+                                        <RadzenSwitch @bind-value=@adAttribute.allowUpdate  />
+                                    </RadzenStack>
+                                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                                        JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                                        <RadzenText Text="Match Against" TextStyle="TextStyle.Body2" />
+                                        <RadzenSwitch @bind-value=@adAttribute.required />
+                                    </RadzenStack>
+                                </RadzenStack>
+                            </RadzenColumn>
+                            <RadzenColumn SizeXS="12" SizeSM="6" SizeLG="1">
+                                <RadzenStack Orientation="Orientation.Vertical">
+                                    <RadzenButton Click="@(() => MoveUp(adAttribute))" Icon="arrow_upward" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                                        Size="ButtonSize.ExtraSmall" Disabled=@(attributeMaps.Count() == 0 || attributeMaps.First() == adAttribute) />
+                                    <RadzenButton Click="@(() => MoveDown(adAttribute))" Icon="arrow_downward" Variant="Variant.Text" ButtonStyle="ButtonStyle.Base"
+                                        Size="ButtonSize.ExtraSmall" Disabled=@(attributeMaps.Count() == 0 || attributeMaps.Last() == adAttribute) />
+                                    @if (attributeMaps.Count() > 1)
+                                    {
+                                        <RadzenButton Click="@(() => DeleteAttribute(adAttribute))" Icon="delete" Variant="Variant.Text" ButtonStyle="ButtonStyle.Danger"
+                                            Size="ButtonSize.ExtraSmall" Style="width: 100%;" />
+                                    }
+                                </RadzenStack>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenCard>
+                </Template>
+            </RadzenDropZoneContainer>
+        </RadzenColumn>
+    </RadzenRow>
+</RadzenTemplateForm>
+
+
+@code {
+
+
+    [Parameter]
+    public Guid? existingGuid { get; set; }
+    RadzenDataGrid<IngestData> dg;
+
+
+    Func<ADAttributeMap, RadzenDropZone<ADAttributeMap>, bool> ItemSelector = (item, zone) => item.Test == (Status)zone.Value;
+
+    void OnDrop(RadzenDropZoneItemEventArgs<ADAttributeMap> args)
+    {
+        if (args.FromZone != args.ToZone)
+        {
+            // update item zone
+            args.Item.Test = (Status)args.ToZone.Value;
+        }
+
+        if (args.ToItem != null && args.ToItem != args.Item)
+        {
+            // reorder items in same zone or place the item at specific index in new zone
+            attributeMaps.Remove(args.Item);
+            attributeMaps.Insert(attributeMaps.IndexOf(args.ToItem), args.Item);
+        }
+    }
+
+    //Initial Data
+    private IngestData newIngest = new IngestData();
+    private List<LocationMap> existingLocationMaps = new List<LocationMap>();
+    private List<ADAttributeMap> attributeMaps = new List<ADAttributeMap>()
+    {
+        new ADAttributeMap()
+        {
+            enabled = true,
+            allowUpdate = true
+        }
+    };
+
+    //AD Attribute Stuff
+public Dictionary<string, string> ADAttributes = new Dictionary<string, string>()
+{
+    {"First Name", "givenName"},
+    {"Last Name", "sn"},
+    {"Email", "mail"},
+    {"Phone Number", "telephoneNumber"},
+    {"Street Address", "streetAddress"},
+    {"City", "l"},
+    {"State", "st"},
+    {"Zip Code", "postalCode"},
+    {"P.O. Box", "postOfficeBox"},
+    {"Country Code", "c"},
+    {"Department", "department"},
+    {"Job Title", "title"},
+    {"Employee ID", "employeeID"},
+    {"Employee Number", "employeeNumber"},
+    {"Company", "company"},
+    {"Office", "physicalDeliveryOfficeName"},
+    {"Telephone Number", "telephoneNumber"},
+    {"Mobile Number", "mobile"},
+    {"Fax Number", "facsimileTelephoneNumber"},
+    {"Pager Number", "pager"},
+    {"Home Phone", "homePhone"},
+    {"Other Phone", "otherTelephone"},
+    {"Web Page", "wWWHomePage"},
+    {"Account Expires", "accountExpires"},
+    {"Home Directory", "homeDirectory"},
+    {"Home Drive", "homeDrive"}
+};
+
+    //@@ Account Name Considerations @@//
+    private Dictionary<string, string>accountNameOptions = new Dictionary<string, string>
+        {
+            {"Use Column", "Column"},
+            {"Custom Value", "Custom"}
+        };
+    private Dictionary<string, string>passwordGenerationOptions = new Dictionary<string, string>
+        {
+            {"Use Column", "Column"},
+            {"Custom Value", "Custom"},
+            {"Random Passwords", "RandomPassword"},
+            {"Random Passphrases", "RandomPassphrase"}
+        };
+    private Dictionary<string, string> managerAdAttributeOptions = new Dictionary<string, string>
+        {
+            {"Employee ID", "employeeID"},
+            {"Employee Number", "employeeNumber"},
+            {"Email", "mail"},
+            {"Distinguished Name", "distinguishedName"},
+            {"SAM Account Name", "sAMAccountName"},
+            {"User Principal Name", "userPrincipalName"},
+            {"NONE", "NONE"}
+        };
+    private string selectedAccountName = "";
+
+    //@@ Manager  Options @@//
+    private bool considerManager = false;
+    private ManagerOption managerOption = new ManagerOption();
+
+    private Dictionary<string, string>managerOptions = new Dictionary<string, string>
+        {
+            {"Use Data Column", "Column"},
+            {"Custom Value", "Custom"},
+            {"Use Static Value", "Static"},
+            {"NONE", "NONE"},
+        };
+    private string selectedManagerConsideration = "";
+
+
+    //@@ Email Consideration Options @@//
+    private bool considerEmail = false;
+    private Option emailOption = new Option();
+    private AccountOptions accountOptions = new AccountOptions();
+
+    private Dictionary<string, string>emailOptions = new Dictionary<string, string>
+        {
+            {"Use Data Column", "Column"},
+            {"Custom Value", "Custom"},
+            {"NONE", "NONE"}
+        };
+
+    private string selectedEmailConsideration = "";
+
+    private PWCreationOptions passwordOptions = new PWCreationOptions();
+
+    /* 
+        SAM Account name special consideration
+        Manager special consideration
+        Email special consideration
+        Method to add a new location to the list 
+    */
+
+
+    private async Task AddNewADAttribute()
+    {
+        attributeMaps.Add(new ADAttributeMap() { enabled = true, allowUpdate = true });
+    }
+
+    private async Task MoveUp(ADAttributeMap attribute)
+    {
+        int i = attributeMaps.IndexOf(attribute);
+        if (i > 0)
+        {
+            attributeMaps.RemoveAt(i);
+            attributeMaps.Insert(i - 1, attribute);
+        }
+    }
+    private async Task MoveDown(ADAttributeMap attribute)
+    {
+        int i = attributeMaps.IndexOf(attribute);
+        if (i < attributeMaps.Count() - 1)
+        {
+            attributeMaps.RemoveAt(i);
+            attributeMaps.Insert(i + 1, attribute);
+        }
+    }
+    public async Task DeleteAttribute(ADAttributeMap attribute)
+    {
+        attributeMaps.Remove(attribute);
+    }
+    public async Task DeleteAllAttributes()
+    {
+        attributeMaps.Clear();
+        attributeMaps.Add(new ADAttributeMap()
+        {
+            enabled = true,
+            allowUpdate = true
+        });
+    }
+    public async Task Save()
+    {
+        if (accountOptions.PasswordCreationType == "RandomPassword" || accountOptions.PasswordCreationType == "RandomPassphrase")
+        {
+            accountOptions.PasswordCreationValue = JsonSerializer.Serialize(passwordOptions);
+        }
+        newIngest.attributeMap = attributeMaps;
+        newIngest.accountOption = accountOptions;
+        newIngest.emailOption = emailOption;
+        newIngest.managerOption = managerOption;
+        await _Save.HandleSave(newIngest);
+        _Nav.NavigateTo("/ingests");
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (existingGuid != null)
+        {
+            var existingIngest = await _Context.IngestData.Where(x => x.Guid == existingGuid).FirstOrDefaultAsync();
+            if (existingIngest != null)
+            {
+                newIngest = existingIngest;
+                attributeMaps = newIngest.attributeMap;
+                accountOptions = existingIngest.accountOption;
+                if ((existingIngest.accountOption.PasswordCreationType == "RandomPassword" || existingIngest.accountOption.PasswordCreationType == "RandomPassphrase") && existingIngest.accountOption.PasswordCreationValue != null)
+                {
+                    passwordOptions = existingIngest.accountOption.PasswordOptions;
+                }
+                emailOption = existingIngest.emailOption;
+                managerOption = existingIngest.managerOption;
+            }
+            else
+            {
+                _Nav.NavigateTo("/ingests/add");
+            }
+        }
+        existingLocationMaps = await _Context.LocationMaps.ToListAsync();
+    }
+}

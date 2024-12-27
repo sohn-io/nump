@@ -1,0 +1,57 @@
+﻿@page "/"
+@inject NotifService _Notify
+@inject NumpContext _Context
+@inject UserService _user
+@inject TaskSchedulerService _Task
+@using nump.Components.Classes
+@using System.Diagnostics
+
+<PageTitle>Home</PageTitle>
+
+    <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="0" class="rz-mb-4">
+        <RadzenText TextStyle="TextStyle.DisplayH4" Text="Tasks - Today" />
+        <RadzenText TextStyle="TextStyle.Overline">@DateTime.Now.ToString("MMMM dd, yyyy")</RadzenText>
+    </RadzenStack>
+<RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="20">
+
+        <RadzenCard class="rz-p-5">
+            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Tasks Ran" />
+            <RadzenText TextAlign="TextAlign.Center">@tasksRanToday</RadzenText>
+        </RadzenCard>
+        <RadzenCard class="rz-p-5">
+            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Successful" />
+            <RadzenText TextAlign="TextAlign.Center">@tasksSuccessfulToday</RadzenText>
+        </RadzenCard>
+        <RadzenCard class="rz-p-5">
+            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Failed" />
+            <RadzenText TextAlign="TextAlign.Center">@tasksFailedToday</RadzenText>
+        </RadzenCard>
+        <RadzenCard class="rz-p-5">
+            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Tasks Running" />
+            <RadzenText TextAlign="TextAlign.Center">@currTasksRunning</RadzenText>
+        </RadzenCard>
+</RadzenRow>
+
+
+
+
+
+@code {
+
+    private int upcomingTasks = 0;
+    private int tasksRanToday = 0;
+    private int tasksSuccessfulToday = 0;
+    private int tasksFailedToday = 0;
+    private int currTasksRunning = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        List<TaskLog> taskLogsToday = await _Context.TaskLogs.Where(x => x.RunTime <= DateTime.Now).ToListAsync();
+        tasksRanToday = taskLogsToday.Count();
+        tasksSuccessfulToday = taskLogsToday.Where(x => x.Result == "SUCCESSFUL").Count();
+        tasksFailedToday = taskLogsToday.Where(x => x.Result != "SUCCESSFUL" && x.CurrentStatus != "Running").Count();
+        currTasksRunning =  _Context.TaskLogs.Where(x => x.CurrentStatus == "Running").Count();
+
+    }
+}

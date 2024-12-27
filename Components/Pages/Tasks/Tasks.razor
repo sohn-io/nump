@@ -1,0 +1,223 @@
+@page "/tasks"
+@inject NumpContext _Context
+@inject UserService _user
+@inject NavigationManager _Nav
+
+
+    <RadzenRow Gap="15">
+    @foreach (NumpInstructionSet task in currentTasks)
+    {
+        string cardClass = "rz-shadow-4";
+        if (task.Enabled == false)
+        {
+            cardClass = "rz-shadow-4 task-disabled";
+        }
+        string cssStyle = "visibility: hidden;";
+        <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="4" SizeXL="3" SizeXX="2" class="h-100">
+            <RadzenCard
+                style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative;"
+                class=@cardClass>
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="0" class="rz-mb-4">
+                    <RadzenText Text="@task.Name" TextStyle="TextStyle.H4" />
+                    <RadzenText Text="@task.Description" TextStyle="TextStyle.Body1" />
+                </RadzenStack>
+                    <RadzenRow>
+                        <RadzenColumn SizeXS="12" SizeMD="6">
+                            <RadzenText TextStyle="TextStyle.H6" Text="General"></RadzenText>
+                            <ul>
+                                <li>
+                                    <RadzenText TextStyle="TextStyle.Body2">Created
+                                        <strong>@(task.Created.ToString("MM/dd/yyyy", CultureInfo.CreateSpecificCulture("en-us")))</strong>
+                                    </RadzenText>
+                                </li>
+                                @if (task.Modified.HasValue)
+                                {
+                                <li>
+                                    <RadzenText TextStyle="TextStyle.Body2">Last Modified
+                                        <strong>@task.Modified.Value.ToString("MM/dd/yyyy", CultureInfo.CreateSpecificCulture("en-us"))</strong>
+                                    </RadzenText>
+                                </li>                                
+                                }
+                                <li>
+                                    @{
+                                        switch (task._frequency.type)
+                                        {
+                                            case 1:
+                                                <RadzenText TextStyle="TextStyle.Body2">Frequency: <strong>Daily at @task._frequency.time</strong></RadzenText>;
+                                                break;
+                                            case 2:
+                                                <RadzenText TextStyle="TextStyle.Body2">Frequency: <strong>Weekly</strong></RadzenText>;
+                                                break;
+                                            case 3:
+                                                <RadzenText TextStyle="TextStyle.Body2">Frequency: <strong>Monthly</strong></RadzenText>;
+                                                break;
+                                            case 4:
+                                                <RadzenText TextStyle="TextStyle.Body2">Parent Task: <strong>@_Context.Tasks.Where(x => x.Guid == task.ParentTask).Select(x => x.Name).FirstOrDefault()</strong></RadzenText>;
+                                                break;
+                                            default:
+                                                <RadzenText TextStyle="TextStyle.Body2">Frequency: <strong>Not Set</strong></RadzenText>;
+                                                break;
+                                        }
+                                    }
+                                </li>
+                            </ul>
+                        </RadzenColumn>
+                        <RadzenColumn SizeXS="12" SizeMD="6">
+                            <RadzenText TextStyle="TextStyle.H6" Text="Associations" />
+                            <ul>
+                                <li>
+                                    @{
+                                        string text = "No Associated Notification";
+                                        if (task.Notifications != null)
+                                        {
+                                            text = "Associated Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.Notifications).Select(x => x.name).FirstOrDefault() + "</strong>";
+                                        }
+                                    <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)text)
+                                    </RadzenText>
+                                    }
+                                </li>
+                                <li>
+                                    @{
+                                        string ingestText = "No Associated Ingest";
+                                        if (task.AssocIngest != null)
+                                        {
+                                            ingestText = "Associated Ingest: <strong>" + _Context.IngestData.Where(x => x.Guid == task.AssocIngest).Select(x => x.name).FirstOrDefault() + "</strong>";
+                                        }
+                                    <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)ingestText)
+                                    </RadzenText>
+                                    }
+                                </li>
+                            </ul>
+                        </RadzenColumn>
+                    </RadzenRow>
+
+                        <RadzenText TextStyle="TextStyle.H6" Text="Options" />
+                        <ul>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">Allow Account Creation: <strong>@task.AllowCreateAccount</strong></RadzenText>
+                            </li>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">Allow Updates: <strong>@task.AllowUpdateFields</strong></RadzenText>
+                            </li>
+
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">Allow Search Logging: <strong>@task.AllowSearchLogging</strong></RadzenText>
+                            </li>
+                        </ul>
+                <div style="margin-top:auto; width: 100%;">
+                    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-1">
+                        <div>
+                            @if (task.CurrentStatus == "Stopped" || task.CurrentStatus == null)
+                            {
+                            <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="play_arrow" Variant="Variant.Outlined"
+                                Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1" Disabled="@(!task.Enabled)"
+                                Click="@(args => StartTask(task))" @onclick:stopPropagation="true" />
+                            }
+                            @if (task.CurrentStatus == "Running")
+                            {
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
+                            <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="stop" Variant="Variant.Outlined"
+                                Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1"
+                                Click="@(args => StopTask(task))" @onclick:stopPropagation="true" />
+                            <RadzenText>Row @task.CurrCsvRow of @task.MaxCsvRow</RadzenText>
+                            </RadzenStack>
+
+                            }
+                        </div>
+                        <div>
+                            <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="edit" Variant="Variant.Outlined"
+                                Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1 z-2"
+                                Click="@(args => EditTask(task))" @onclick:stopPropagation="true" />
+
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Outlined"
+                                Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1 z-2"
+                                Click="@(args => DeleteTask(task))" @onclick:stopPropagation="true">
+                            </RadzenButton>
+                        </div>
+                    </RadzenStack>
+                    <div>
+                    @if (task.CurrentStatus == "Running")
+                    {
+                        cssStyle = "visibility: visible;";
+
+                    }
+                    <RadzenProgressBar Value="@task.CurrProgress" ShowValue="false" Style="@cssStyle" />
+                    </div>
+
+                </div>
+
+            </RadzenCard>
+        </RadzenColumn>
+    }
+        <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="4" SizeXL="3" SizeXX="2" class="h-100">
+        <RadzenCard Variant="Variant.Outlined"
+            style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative; padding: 0% !important;"
+            class="rz-shadow-4">
+            <RadzenButton Icon="add_circle" class="w-100 h-100 big-button" Size="ButtonSize.Large"
+                ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Click="AddNew"
+                style="padding: 16px !important" />
+        </RadzenCard>
+    </RadzenColumn>
+</RadzenRow>
+
+
+@code {
+
+    RadzenDataGrid<NumpInstructionSet> taskDg;
+
+
+    public List<NumpInstructionSet> currentTasks = new List<NumpInstructionSet>();
+
+
+
+    private async Task StartTask(NumpInstructionSet task)
+    {
+        task.CancelToken = new CancellationTokenSource();
+        await _user.ActuallyDoTask(task, task.CancelToken.Token);
+
+    }
+    private async Task StopTask(NumpInstructionSet task)
+    {
+        await task.CancelToken.CancelAsync();
+    }
+    private async Task AddNew()
+    {
+        _Nav.NavigateTo($"/tasks/add/");
+    }
+
+    private async Task EditTask(NumpInstructionSet task)
+    {
+        _Nav.NavigateTo($"/tasks/edit/{task.Guid}");
+    }
+    private async Task DeleteTask(NumpInstructionSet task)
+    {
+        if (currentTasks.Contains(task))
+        {
+
+            _Context.Remove<NumpInstructionSet>(task);
+            _Context.SaveChanges();
+            currentTasks.Remove(task);
+
+        }
+    }
+    // This method will be called when the task list is updated
+    private void UpdateTasks(object sender, UserService.TaskUpdatedEventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    // Unsubscribe from the event when the component is disposed
+    public void Dispose()
+    {
+        _user.OnTaskUpdated -= (sender, e) => UpdateTasks(sender, e);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+
+        currentTasks = await _Context.Tasks.ToListAsync();
+        _user.OnTaskUpdated += (sender, e) => UpdateTasks(sender, e);
+
+
+    }
+
+}

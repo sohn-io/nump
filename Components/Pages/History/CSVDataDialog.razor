@@ -1,0 +1,27 @@
+@using System.Linq.Dynamic.Core
+
+<RadzenDataGrid Data="@CSVData">
+    <Columns>
+        <RadzenDataGridColumn Property="Key" Title="Column Name" />
+        <RadzenDataGridColumn Property="Value" Title="Column Value" />
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    [Parameter] 
+    public IDictionary<string, object>? CSVData { get; set; }
+
+    private List<Dictionary<string, object>> data = new List<Dictionary<string, object>>();
+
+        protected override async Task OnInitializedAsync()
+        {
+            if (CSVData == null)
+            {
+                return;
+            }
+            foreach (var item in CSVData)
+            {
+                data.Add(new Dictionary<string, object> { { "Key", item.Key }, { "Value", item.Value } });
+            }
+        }
+}

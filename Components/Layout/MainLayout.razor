@@ -1,0 +1,54 @@
+﻿@inherits LayoutComponentBase
+
+<RadzenComponents @rendermode="InteractiveServer" />
+
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenRow AlignItems="AlignItems.Center" class="w-100 h-100 rz-px-4">
+            <RadzenLabel Text="NUMP"/>
+        </RadzenRow>
+    </RadzenHeader>
+    <RadzenSidebar Expanded="true">
+        <RadzenStack Orientation="Orientation.Vertical" Gap="20" class="custom-panel-menu">
+        <RadzenPanelMenu class="rz-mt-4">
+            <RadzenLabel Text="Main" class="rz-mx-4 rz-mb-2"/>
+            <RadzenPanelMenuItem Text="Home" Icon="home" Path="/" />
+            <RadzenPanelMenuItem Text="History" Icon="account_box" Path="/history" />
+        </RadzenPanelMenu>        
+        <RadzenPanelMenu>
+            <RadzenLabel Text="Management" class="rz-mx-4 rz-mb-2"/>
+            <RadzenPanelMenuItem Text="Tasks" Icon="task" Path="tasks">
+               <!-- <RadzenPanelMenuItem Text="Add New" Icon="add"/> -->
+            </RadzenPanelMenuItem>
+            <RadzenPanelMenuItem Text="Data Ingestion" Icon="arrow_right_alt" Path="ingests" />
+            <RadzenPanelMenuItem Text="Notifications" Icon="notifications" Path="notifications" />
+            <RadzenPanelMenuItem Text="Locations" Icon="map" Path="locations" />
+        </RadzenPanelMenu>
+        <RadzenPanelMenu>
+            <RadzenLabel Text="Settings" class="rz-mx-4 rz-mb-2"/>
+            <RadzenPanelMenuItem Text="Active Directory" Icon="person">
+
+                               <!-- <RadzenPanelMenuItem Text="Add New" Icon="add"/> -->
+            </RadzenPanelMenuItem>
+            <RadzenPanelMenuItem Text="Email" Icon="mail">
+
+                               <!-- <RadzenPanelMenuItem Text="Add New" Icon="add"/> -->
+            </RadzenPanelMenuItem>
+            <RadzenPanelMenuItem Text="Permissions" Icon="shield">
+
+                               <!-- <RadzenPanelMenuItem Text="Add New" Icon="add"/> -->
+            </RadzenPanelMenuItem>
+            <RadzenPanelMenuItem Text="Nump Settings" Icon="settings">
+
+                               <!-- <RadzenPanelMenuItem Text="Add New" Icon="add"/> -->
+            </RadzenPanelMenuItem>
+        </RadzenPanelMenu>
+        </RadzenStack>
+    </RadzenSidebar>
+    <RadzenBody>
+            @Body
+    </RadzenBody>
+</RadzenLayout>
+
+@code {
+}

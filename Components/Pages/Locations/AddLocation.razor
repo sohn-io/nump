@@ -1,0 +1,223 @@
+@page "/locations/add"
+@page "/locations/edit/{existingGuid:guid}"
+@using CsvHelper;
+@using System.Text;
+@inject NumpContext _Context
+@inject NavigationManager _Nav
+@inject NotificationService NotificationService
+
+<RadzenUpload Change="@(e => HandleFileSelected(e))" Multiple="false" />
+<RadzenRow Gap="15">
+@if (columnNamesVisible)
+{
+    <RadzenCard>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+            <RadzenText TextStyle="TextStyle.Body2" Text="Select Location Column" />
+            <RadzenDropDown TValue="string" Data="@columnNames" Multiple="false" @bind-Value="@selectedLocationColumnName" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
+            <RadzenText TextStyle="TextStyle.Body2" Text="Select AD OU Column (OPTIONAL)" />
+            <RadzenDropDown TValue="string" Data="@columnNames" Multiple="false" @bind-Value="@selectedGuidColumnName" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+        </RadzenStack>
+            <RadzenButton Text="Load Locations" Click="@(() => LoadLocations())" />
+    </RadzenCard>
+
+}
+</RadzenRow>
+<RadzenTemplateForm TItem="LocationMap" Data=@newLocation Submit="@(() => Save())">
+    <RadzenFieldset Text="New Location Mapping">
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="20" AlignItems="AlignItems.Center">
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
+                <RadzenLabel Text="Location Title" Component="FirstName" />
+                <RadzenTextBox Name="FirstName" @bind-Value=@newLocation.name Style="display: block;" />
+                <RadzenRequiredValidator Component="FirstName" Text="Location Title is required" Popup="false"
+                    Style="position: absolute" />
+            </RadzenStack>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
+            <RadzenLabel Text="Default OU" Component="FirstName" />
+            <RadzenMask Mask="********-****-****-****-************" Placeholder="00000000-0000-0000-0000-000000000000" 
+                     @bind-Value="@newLocation.defaultLocation" />
+            </RadzenStack>
+            <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" />
+
+        </RadzenStack>
+        <RadzenDataList Data="@newLocationList" class="custom-data-list" @ref="datalist">
+            <Template Context="location">
+                <RadzenRow RowGap="10" AlignItems="AlignItems.Center">
+                    <RadzenLabel Text="File Value" Component="FirstName" />
+                    <RadzenColumn Size="4" SizeMD="4">
+                        <RadzenTextBox Name="FileValue" @bind-Value=location.sourceColumnValue
+                        Style="display: block; width: 100%;" />
+                    </RadzenColumn>
+                    <RadzenLabel Text="AD OU (GUID)" Component="FirstName" />
+                    <RadzenColumn Size="4" SizeMD="4">
+                        <RadzenMask Mask="********-****-****-****-************" Placeholder="00000000-0000-0000-0000-000000000000" 
+                    Name="ouGuid" @bind-Value="@location.adOUGuid" Style="display:block block; width: 100%;" />
+                    </RadzenColumn>
+                    @if (newLocationList.Last() == location)
+                    {
+                        <RadzenButton Click="@(() => AddNewLocation())" Icon="add" Variant="Variant.Text"
+                            Size="ButtonSize.ExtraSmall" />
+
+                    }
+                    @if (newLocationList.Count() > 1)
+                    {
+                        <RadzenButton Click="@(() => Delete(location))" Icon="delete" Variant="Variant.Text"
+                            Size="ButtonSize.ExtraSmall" />
+                    }
+                </RadzenRow>
+            </Template>
+        </RadzenDataList>
+    </RadzenFieldset>
+
+</RadzenTemplateForm>
+@code {
+
+    [Parameter]
+    public Guid? existingGuid { get; set; }
+
+    RadzenDataList<Location> datalist;
+
+    private LocationMap newLocation = new LocationMap()
+    {
+        locationList = new List<Location>()
+        {
+            new Location()
+        }
+    };
+
+    private List<Location> newLocationList = new List<Location>()
+    {
+        new Location()
+    };
+
+    private List<string> columnNames = new List<string>();
+    bool columnNamesVisible = false;
+    string selectedLocationColumnName;
+    string selectedGuidColumnName;
+
+    List<string>? prefillColumnValues = new List<string>();
+    List<string>? prefillGuidColumnValues = new List<string>();
+
+    private List<dynamic> currentCsv = new List<dynamic>();
+
+
+
+    private async Task LoadLocations()
+    {
+        if (prefillColumnValues.Count() != 0 )
+        {
+            prefillColumnValues.Clear();
+        }
+        foreach(IDictionary<string, object> csvLine in currentCsv)
+        {
+            var values = csvLine.Where(x => x.Key == selectedLocationColumnName).Select(x => x.Value.ToString()).ToList();
+            if (values != null)
+            {
+                prefillColumnValues.AddRange(values);
+            }
+        }
+        prefillColumnValues = prefillColumnValues.Distinct().OrderBy(x => x).ToList();
+
+        newLocationList.Clear();
+        foreach (string value in prefillColumnValues)
+        {
+            newLocationList.Add(new Location {
+                sourceColumnValue = value
+            });
+
+        }
+
+    }
+
+    // Handle file selection and read it as a string
+    private async Task HandleFileSelected(UploadChangeEventArgs e)
+    {
+        var file = e.Files.First().Source;
+        using (var stream = new MemoryStream())
+        {
+            // Read the file into a memory stream
+            await file.OpenReadStream().CopyToAsync(stream);
+
+            // Convert the byte array to string (assuming UTF-8 encoding)
+            var fileContent = Encoding.UTF8.GetString(stream.ToArray());
+
+            // Parse the CSV string using CSVHelper
+            using (var reader = new StringReader(fileContent))
+            using (var csv = new CsvHelper.CsvReader(reader, new
+            CsvHelper.Configuration.CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)))
+            {
+                // Read the CSV records
+                currentCsv = csv.GetRecords<dynamic>().ToList();
+                if (columnNames.Count() != 0)
+                {
+                    columnNames.Clear();
+                    selectedLocationColumnName = "";
+                }
+                foreach (IDictionary<string, object> csvLine in currentCsv)
+                {
+                    columnNames.AddRange(csvLine.Keys.ToList());
+                }
+                columnNames = columnNames.Distinct().ToList();
+                columnNamesVisible = true;
+            }
+        }
+    }
+
+    // Method to add a new location to the list
+    private async Task AddNewLocation()
+    {
+        newLocationList.Add(new Location());
+    }
+
+    public async Task Delete(Location location)
+    {
+        newLocationList.Remove(location);
+    }
+    public async Task Save()
+    {
+        Console.WriteLine(newLocationList.GroupBy(x => x.sourceColumnValue).Where(x => x.Count() > 1).Count());
+        newLocationList.RemoveAll(x => x.adOUGuid == null && x.sourceColumnValue == null);
+        if (newLocationList.GroupBy(x => x.sourceColumnValue).Where(x => x.Count() > 1).Count() != 0)
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Duplicate Values", Detail = "Unique File Values only!", Duration = 4000 });
+            return;
+        }
+        if (newLocationList.Any(x => x.sourceColumnValue == null || x.adOUGuid == null))
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Empty Values", Detail = "Empty Values Afoot", Duration = 4000 });
+            return;
+        }
+        newLocation.locationList = newLocationList;
+        if (_Context.LocationMaps.Any(e => e.Guid == newLocation.Guid))
+        {
+            _Context.Update<LocationMap>(newLocation);
+        }
+        else
+        {
+            await _Context.AddAsync(newLocation);
+
+        }
+        await _Context.SaveChangesAsync();
+        _Nav.NavigateTo("/locations");
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (existingGuid != null)
+        {
+            var existingLocationMap = await _Context.LocationMaps.Where(x => x.Guid == existingGuid).FirstOrDefaultAsync();
+            if (existingLocationMap != null)
+            {
+                newLocation = existingLocationMap;
+                newLocationList = existingLocationMap.locationList;
+            }
+            else
+            {
+                _Nav.NavigateTo("/locations/add");
+            }
+        }
+    }
+}

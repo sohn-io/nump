@@ -1,0 +1,95 @@
+@page "/notifications/add"
+@page "/notifications/edit/{existingGuid:guid}"
+@inject SaveService<NotificationData> _Save
+@inject NavigationManager _Nav
+@inject NumpContext _Context
+
+<RadzenTemplateForm data="@newNotification" Submit="@(() => Save())" TItem="NotificationData">
+    <!--<RadzenDropDown Data="@NotificationTypes" TextProperty="Key" ValueProperty="Value" @bind-Value=@newNotification.NotificationType /> -->
+    <RadzenTextBox Placeholder="Name" @bind-Value=@newNotification.name />
+    <RadzenStack Orientation="Orientation.Vertical" Gap="10">
+        <RadzenTextBox Placeholder="To" @bind-Value=@sendRecipients />
+        <RadzenTextBox Placeholder="CC" @bind-Value=@ccRecipients />
+        <RadzenTextBox Placeholder="BCC" @bind-Value=@bccRecipients />
+    </RadzenStack>
+
+    <RadzenTextBox Placeholder="Subject" @bind-Value=@newNotification.header />
+    <RadzenRadioButtonList @bind-Value=@newNotification.type TValue="string">
+        <Items>
+            <RadzenRadioButtonListItem Text="Plain Text" Value="@("Text")" />
+            <RadzenRadioButtonListItem Text="HTML" Value="@("HTML")" />
+        </Items>
+    </RadzenRadioButtonList>
+    @if (newNotification.type == "HTML")
+    {
+        <RadzenHtmlEditor @bind-Value=@newNotification.body style="min-height: 300px;" />
+    }
+    @if (newNotification.type == "Text")
+    {
+        <RadzenTextArea @bind-Value=@newNotification.body style="min-height: 300px;" />
+    }
+    <RadzenButton ButtonType="ButtonType.Submit" Icon="Save" />
+</RadzenTemplateForm>
+
+
+@code {
+
+    [Parameter]
+    public Guid? existingGuid { get; set; }
+
+    NotificationData newNotification = new NotificationData()
+        {
+            type = "HTML"
+        };
+    Dictionary<string, int> NotificationTypes = new Dictionary<string, int>()
+        {
+            {"Task Completed", 1},
+            {"User Created", 2},
+            {"User Modified", 3}
+        };
+    string sendRecipients = String.Empty;
+    string ccRecipients = String.Empty;
+    string bccRecipients = String.Empty;
+
+
+    private async Task Save()
+    {
+        newNotification.sendRecipientsList = sendRecipients.Split(';').ToList();
+        if (ccRecipients == "")
+        {
+            newNotification.ccRecipientsList = null;
+        }
+        else
+        {
+            newNotification.ccRecipientsList = ccRecipients.Split(';').ToList();
+        }
+        if (bccRecipients == "")
+        {
+            Console.WriteLine("twas null");
+            newNotification.bccRecipientsList = null;
+        }
+        else
+        {
+            newNotification.bccRecipientsList = bccRecipients.Split(';').ToList();
+        }
+
+        await _Save.HandleSave(newNotification);
+        _Nav.NavigateTo("/notifications");
+
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        if (existingGuid != null)
+        {
+            var existingNotification = await _Context.Notifications.Where(x => x.Guid == existingGuid).FirstOrDefaultAsync();
+            if (existingNotification != null)
+            {
+                newNotification = existingNotification;
+                sendRecipients = existingNotification.sendRecipientsList != null ? String.Join(";", existingNotification.sendRecipientsList) : String.Empty;
+                ccRecipients = existingNotification.ccRecipientsList != null ? String.Join(";", existingNotification.ccRecipientsList) : String.Empty;
+                bccRecipients = existingNotification.bccRecipientsList != null ? String.Join(";", existingNotification.bccRecipientsList): String.Empty;
+            }
+
+        }
+    }
+}

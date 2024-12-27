@@ -1,0 +1,95 @@
+@page "/notifications"
+@inject NumpContext _Context
+@inject NavigationManager _Nav
+<RadzenRow Gap="15">
+    @foreach (NotificationData notification in currentNotifications)
+    {
+        <RadzenColumn SizeXS="12" SizeMD="3" SizeLG="3" SizeXL="2" class="h-100">
+            <RadzenCard
+                style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative;"
+                class="rz-shadow-4">
+                <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="0" class="rz-mb-4">
+                    <RadzenText Text="@notification.name" TextStyle="TextStyle.H3" />
+                    <!--<RadzenText Text="@notification.description" TextStyle="TextStyle.Body1" /> -->
+                </RadzenStack>
+
+                        <ul>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">Subject: <strong>@notification.header</strong></RadzenText>
+                            </li>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">Send To <strong>@notification.sendRecipientsList.Count()</strong> Recipient(s)</RadzenText>
+                            </li>
+                            @if (notification.ccRecipientsList != null)
+                            {
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">CC <strong>@notification.ccRecipientsList.Count()</strong> Recipient(s)</RadzenText>
+                            </li>          
+                            }
+                            @if (notification.bccRecipientsList != null)
+                            {
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">BCC <strong>@notification.bccRecipientsList.Count()</strong> Recipient(s)</RadzenText>
+                            </li>
+                            }
+
+                        </ul>
+
+                <div style="margin-top: auto; align-self: flex-end; position: absolute; bottom: 10px; right: 10px;">
+                    <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="edit" Variant="Variant.Outlined"
+                        Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1"
+                        Click="@(args => EditRow(notification))" @onclick:stopPropagation="true" />
+
+                    <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Outlined"
+                        Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1"
+                        Click="@(args => DeleteRow(notification))" @onclick:stopPropagation="true">
+                    </RadzenButton>
+                </div>
+            </RadzenCard>
+        </RadzenColumn>
+    }
+    <RadzenColumn SizeXS="12" SizeMD="3" SizeLG="2" SizeXL="2" class="h-100">
+        <RadzenCard Variant="Variant.Outlined"
+            style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative; padding: 0% !important;"
+            class="rz-shadow-4">
+            <RadzenButton Icon="add_circle" class="w-100 h-100 big-button" Size="ButtonSize.Large"
+                ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Click="AddNew"
+                style="padding: 16px !important" />
+        </RadzenCard>
+    </RadzenColumn>
+</RadzenRow>
+
+
+
+
+@code {
+    async Task DeleteRow(NotificationData notification)
+    {
+        if (currentNotifications.Contains(notification))
+        {
+            _Context.Remove<NotificationData>(notification);
+
+            _Context.SaveChanges();
+
+        }
+        currentNotifications = await GetcurrentNotificationsAsync();
+    }
+    async Task EditRow(NotificationData notification)
+    {
+        _Nav.NavigateTo($"/notifications/edit/{notification.Guid}");
+    }
+    async Task<List<NotificationData>> GetcurrentNotificationsAsync()
+    {
+        return await _Context.Notifications.ToListAsync();
+    }
+    void AddNew()
+    {
+        _Nav.NavigateTo("/notifications/add");
+    }
+    private List<NotificationData> currentNotifications = new List<NotificationData>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentNotifications = await _Context.Notifications.ToListAsync();
+    }
+}
