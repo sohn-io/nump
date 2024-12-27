@@ -11,8 +11,7 @@ NUMP can also handle updates to existing user accounts, such as changes in role,
 - **Audit and Reporting**: NUMP generates logs and reports for all user creation and update events for compliance and troubleshooting purposes.
 
 ## How It Works
-- **Data Input**: User data, such as first name, last name, job title, department, and email,
-- **Account Creation**: NUMP processes the data, generates a username, and creates an Active Directory account. Attributes such as email, phone number, department are automatically populated.
+- **Account Creation**: NUMP processes user data, generates a username, and creates an Active Directory account. Attributes specified in the data ingestion are automatically updated.
 - **Scheduled Execution**: NUMP is scheduled to run automatically at a specified time (e.g., 9:00 AM daily). At this time, it processes the latest CSV file to create and update Active Directory accounts.
 - **Account Updates**: When an existing user’s details change (e.g., department change or promotion), NUMP updates their AD account automatically to reflect the changes.
 - **Logging and Notifications**: Every action performed by NUMP (account creation, modification) is logged for auditing purposes. Notifications can be sent to administrators about key actions, such as account creation or a failed update.
