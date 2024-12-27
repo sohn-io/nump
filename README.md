@@ -9,7 +9,6 @@ NUMP can also handle updates to existing user accounts, such as changes in role,
 - **Automatic Account Creation**: When a new user is onboarded, NUMP automatically creates their Active Directory account with the necessary attributes (e.g., username, department, email).
 - **Account Updates**: NUMP can update existing accounts based on role changes, department reassignments, or other administrative changes, ensuring the information in AD is always up-to-date.
 - **Audit and Reporting**: NUMP generates logs and reports for all user creation and update events for compliance and troubleshooting purposes.
-- **Integration with HR Systems**: NUMP can integrate with Human Resources (HR) software via.
 
 ## How It Works
 - **Data Input**: User data, such as first name, last name, job title, department, and email,
