@@ -35,13 +35,28 @@ jobs:
       with:
         name: blazor-publish
         path: ./publish
-        
-    - name: upload windows artifact
+
+    # Step to get the release ID of the existing release
+    - name: Get existing release ID
+      id: get_release
+      run: |
+        REPO="your-username/your-repo"  # Replace with your repo name
+        TAG="v1.0.0"  # Replace with the tag of the release you want to upload to
+        RESPONSE=$(curl -s -H "Authorization: token ${{ github.token }}" \
+          "https://api.github.com/repos/$REPO/releases/tags/$TAG")
+        echo "Release response: $RESPONSE"
+        RELEASE_ID=$(echo $RESPONSE | jq -r .id)
+        UPLOAD_URL=$(echo $RESPONSE | jq -r .upload_url | sed 's/{?name,label}//')
+        echo "RELEASE_ID=$RELEASE_ID" >> $GITHUB_ENV
+        echo "UPLOAD_URL=$UPLOAD_URL" >> $GITHUB_ENV
+
+    # Step to upload the artifact to the existing release
+    - name: Upload Windows Artifact to Existing Release
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ github.token }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./bin/azblogfilter.windows-amd64.zip
-        asset_name: azblogfilter.windows-amd64.zip
+        upload_url: ${{ env.UPLOAD_URL }}
+        asset_path: ./bin/nump.windows-amd64.zip
+        asset_name: nump.windows-amd64.zip
         asset_content_type: application/zip
