@@ -389,7 +389,7 @@ public partial class UserService
             string ldapPath = $"LDAP://" + creds["domain"] + "/" + ouPath;
             string username = creds.ContainsKey("username") ? creds["username"] : null;
             string password = creds.ContainsKey("password") ? creds["password"] : null;
-            PrincipalContext context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath, username, password);
+            PrincipalContext context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath, username + "@" + creds["domain"], password);
 
             /* @@@ Account Name @@@ */
             string sam = await FindValidUsername(currentIngest.accountOption, user);
@@ -494,7 +494,8 @@ public partial class UserService
                 await LogUserCreate(task, newUser, "FAILED", null, csvRecord);
             }
 
-
+            context.Dispose();
+            newUserPrincipal.Dispose();
         }
 
         catch (COMException comEx)
@@ -606,6 +607,7 @@ public partial class UserService
             await LogUserUpdate(task, user, "UPDATE", "SUCCESSFUL", "SUCCESSFUL", csvRecord);
         }
         user.CommitChanges();
+        user.Dispose();
         return updatedValues;
     }
     public async Task<Dictionary<string, string>> GetCreds()
@@ -653,10 +655,9 @@ public partial class UserService
         List<DirectoryEntry> returnItem = new List<DirectoryEntry>();
         // Define the LDAP path for your Active Directory domain
         string ldapPath = $"LDAP://" + creds["domain"];
-
         // Create a DirectoryEntry object with the LDAP path
         DirectoryEntry entry = new DirectoryEntry(ldapPath);
-        entry.Username = creds.ContainsKey("username") ? creds["username"] : null;
+        entry.Username = creds.ContainsKey("username") ? creds["username"] + "@" + creds["domain"] : null;
         entry.Password = creds.ContainsKey("password") ? creds["password"] : null;
 
 
@@ -686,10 +687,13 @@ public partial class UserService
         // Return the DirectoryEntry if a result is found
         return returnItem; // null if no result
     }
-    public async Task<string> BuildLdapString(Dictionary<string, string> requiredElements, char matcher = '&')
+    public async Task<string> BuildLdapString(Dictionary<string, string> requiredElements, string matcher = "&")
     {
         var ldapFilterBuilder = new StringBuilder("(" + matcher);  // Start the AND clause
+        if (requiredElements.Count == 0)
+        {
 
+        }
         foreach (var requiredElement in requiredElements)
         {
             string requiredElementValue = requiredElement.Value;
@@ -717,6 +721,7 @@ public partial class UserService
         }
 
         ldapFilterBuilder.Append(")");  // Close the AND clause
+        Console.WriteLine(ldapFilterBuilder.ToString());
         return ldapFilterBuilder.ToString();
     }
     public async Task<string> ReplaceVariablesAnonymous(string sourceString, Dictionary<string, string> items)

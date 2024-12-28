@@ -3,6 +3,7 @@
 @inject NumpContext _Context
 @inject NavigationManager _Nav
 @inject SaveService<IngestData> _Save
+@inject NotificationService _notify
 @using System.Text.Json
 <!--<RadzenColumn SizeXS="12" SizeMD="2" SizeLG="2">
     <RadzenUpload Multiple="false"
@@ -331,7 +332,6 @@ public Dictionary<string, string> ADAttributes = new Dictionary<string, string>(
         Method to add a new location to the list 
     */
 
-
     private async Task AddNewADAttribute()
     {
         attributeMaps.Add(new ADAttributeMap() { enabled = true, allowUpdate = true });
@@ -368,8 +368,24 @@ public Dictionary<string, string> ADAttributes = new Dictionary<string, string>(
             allowUpdate = true
         });
     }
+    void ShowNotification(NotificationMessage message)
+    {
+        _notify.Notify(message);
+    }
     public async Task Save()
     {
+        if (!attributeMaps.Any(x => x.required == true))
+        {
+            NotificationMessage message = new NotificationMessage
+            { 
+                Severity = NotificationSeverity.Error, 
+                Summary = "Save Failed", 
+                Detail = "Must have atleast one value to match against", 
+                Duration = 4000 
+            };
+            ShowNotification(message);
+            return;
+        }
         if (accountOptions.PasswordCreationType == "RandomPassword" || accountOptions.PasswordCreationType == "RandomPassphrase")
         {
             accountOptions.PasswordCreationValue = JsonSerializer.Serialize(passwordOptions);
