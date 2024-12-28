@@ -1,0 +1,109 @@
+@page "/variable"
+
+<RadzenText TextStyle="TextStyle.Body1">Variables are available on a number of different items.</RadzenText>
+<RadzenText TextStyle="TextStyle.Body1">Specify a variable using {{variableName}}</RadzenText>
+<style>
+    .newclass {
+        border: 1px solid white;
+        padding: 0.5rem !important;
+    }
+</style>
+
+<RadzenStack Orientation="Orientation.Vertical" Gap="0" class="rz-mb-4">
+    <table class="newclass rz-mb-1" style="border-collapse: collapse;">
+        <tr>
+            <td class="newclass"><strong>Variable</strong></td>
+            <td class="newclass"><strong>Allowed Use</strong></td>
+        </tr>
+        <tr>
+            <td class="newclass">All LDAP Attributes</td>
+            <td class="newclass">All Notifications*</td>
+        </tr>
+        <tr>
+            <td class="newclass">Allowed LDAP Attributes</td>
+            <td class="newclass">Ingest - Account Options, Email Options, Manager Options (Custom Value)</td>
+        </tr>
+        <tr>
+            <td class="newclass">Misc Variables</td>
+            <td class="newclass">All Notifications, Ingest - Account Options (Account Description)</td>
+        </tr>
+        <tr>
+            <td class="newclass">Misc User Variables</td>
+            <td class="newclass">Ingest - Account Options, Email Options, Manager Options (Custom Value), All
+                Notifications* </td>
+        </tr>
+        <tr>
+            <td class="newclass">Header Variables</td>
+            <td class="newclass">Task Complete Notifications ONLY</td>
+        </tr>
+    </table>
+
+    <RadzenText TextStyle="TextStyle.Caption">*Can only be used on Task completion Notifications under a header
+        variable.</RadzenText>
+</RadzenStack>
+<div class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.DisplayH5">Allowed LDAP Attributes</RadzenText>
+    <RadzenText TextStyle="TextStyle.Body2">
+        These are Attributes that are enabled or allowed to be updated as specified by your Data Ingestion. Refer to All LDAP Attributes for the values.
+    </RadzenText>
+</div>
+
+
+<div class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.DisplayH5">All LDAP Attributes</RadzenText>
+    <RadzenText TextStyle="TextStyle.Body2">
+        <code>sAMAccountName</code> : User logon name (pre-Windows 2000)<br />
+        <code>userPrincipalName</code> : User logon name<br />
+        <code>displayName</code> : Display name<br />
+        <code>givenName</code> : First name<br />
+        <code>sn</code> : Last name<br />
+        <code>description</code> : Description <br />
+        <code>employeeID</code> : Employee ID<br />
+        <code>employeeNumber</code> : Employee Number <br />
+        <code>title</code> : Job title<br />
+        <code>mail</code> : Email address<br />
+        <code>telephoneNumber</code> : Telephone number<br />
+        <code>mobile</code> : Mobile number<br />
+        <code>homePhone</code> : Home phone<br />
+        <code>pager</code> : Pager<br />
+        <code>facsimileTelephoneNumber</code> : Fax number<br />
+        <code>ipPhone</code> : IP phone<br />
+        <code>wwwhomepage</code> : Web page<br />
+        <code>department</code> : Department<br />
+        <code>company</code> : Company<br />
+        <code>manager</code> : Manager<br />
+        <code>streetAddress</code> : Street address<br />
+        <code>l</code> : City<br />
+        <code>st</code> : State/Province<br />
+        <code>c</code> : Country<br />
+        <code>postalCode</code> : ZIP/Postal code<br />
+        <code>homeDirectory</code> : Home directory<br />
+    </RadzenText>
+
+</div>
+
+<div class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.DisplayH5">Misc Variables</RadzenText>
+    <RadzenText TextStyle="TextStyle.Body2">
+        <code>today</code> : Date Today MM/dd/yyyy. use <code>today@format</code> to select your own date format (e.g.
+        today@dd/MM/yyyy hh:mm tt)<br />
+    </RadzenText>
+</div>
+<div class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.DisplayH5">Misc User Variables</RadzenText>
+    <RadzenText TextStyle="TextStyle.Body2">
+        <code>firstInitial</code> : gets first initial using CSV Data if first name is selected.<br />
+        <code>lastInitial</code> : gets last initial using CSV Data if last name is selected.<br />
+    </RadzenText>
+</div>
+<div class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.DisplayH5">Header Variables</RadzenText>
+    <RadzenText TextStyle="TextStyle.Body2">
+        <code>[AllCreatedUsers] * [/AllCreatedUsers]</code>: Use like html. anything in between brackets will be
+        repeated
+        for each user created.<br />
+        <code>[AllUpdatedUsers] * [/AllUpdatedUsers]</code>: Use like html. anything in between brackets will be
+        repeated
+        for each user updated.<br />
+    </RadzenText>
+</div>

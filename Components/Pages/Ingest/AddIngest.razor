@@ -4,6 +4,7 @@
 @inject NavigationManager _Nav
 @inject SaveService<IngestData> _Save
 @inject NotificationService _notify
+@inject DialogService DialogService
 @using System.Text.Json
 <!--<RadzenColumn SizeXS="12" SizeMD="2" SizeLG="2">
     <RadzenUpload Multiple="false"
@@ -138,6 +139,8 @@
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
                 <RadzenButton Click="@(() => AddNewADAttribute())" Icon="add" Variant="Variant.Text" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Base" />
                 <RadzenButton Click="@(() => DeleteAllAttributes())" Icon="delete" Variant="Variant.Text" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Danger" />
+                <RadzenButton Click="@(() => ShowVariableInfo())" Text="Variable Info" Variant="Variant.Text" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Primary" />
+
             </RadzenStack>
             <RadzenDropZoneContainer TItem="ADAttributeMap" Data="@attributeMaps" ItemSelector="@ItemSelector" Drop="@OnDrop">
                 <ChildContent>
@@ -366,6 +369,16 @@ public Dictionary<string, string> ADAttributes = new Dictionary<string, string>(
         {
             enabled = true,
             allowUpdate = true
+        });
+    }
+    public async Task ShowVariableInfo()
+    {
+        DialogService.OpenSideAsync<VariableInfo>("Variable Info", options: new SideDialogOptions 
+        { 
+            CloseDialogOnOverlayClick = true, 
+            Position = DialogPosition.Right, 
+            ShowMask = true,
+            Width = "25%"
         });
     }
     void ShowNotification(NotificationMessage message)
