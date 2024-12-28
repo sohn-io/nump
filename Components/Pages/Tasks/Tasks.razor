@@ -13,9 +13,9 @@
             cardClass = "rz-shadow-4 task-disabled";
         }
         string cssStyle = "visibility: hidden;";
-        <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="4" SizeXL="3" SizeXX="2" class="h-100">
+        <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="4" SizeXL="3" SizeXX="2">
             <RadzenCard
-                style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative;"
+                style="border-radius: 10px; height: 500px; display: flex; flex-direction: column; position: relative;"
                 class=@cardClass>
                 <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="0" class="rz-mb-4">
                     <RadzenText Text="@task.Name" TextStyle="TextStyle.H4" />
@@ -61,18 +61,53 @@
                                     }
                                 </li>
                             </ul>
+                        <RadzenText TextStyle="TextStyle.H6" Text="Options" />
+                        <ul>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">Allow Account Creation: <strong>@task.AllowCreateAccount</strong></RadzenText>
+                            </li>
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">Allow Updates: <strong>@task.AllowUpdateFields</strong></RadzenText>
+                            </li>
+
+                            <li>
+                                <RadzenText TextStyle="TextStyle.Body2">Allow Search Logging: <strong>@task.AllowSearchLogging</strong></RadzenText>
+                            </li>
+                        </ul>
                         </RadzenColumn>
                         <RadzenColumn SizeXS="12" SizeMD="6">
                             <RadzenText TextStyle="TextStyle.H6" Text="Associations" />
                             <ul>
                                 <li>
                                     @{
-                                        string text = "No Associated Notification";
-                                        if (task.Notifications != null)
+                                        string completedText = "No Associated <strong>Completed</strong> Notification";
+                                        if (task.CompletedNotification != null)
                                         {
-                                            text = "Associated Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.Notifications).Select(x => x.name).FirstOrDefault() + "</strong>";
+                                            completedText = "Completion Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.CompletedNotification).Select(x => x.name).FirstOrDefault() + "</strong>";
                                         }
-                                    <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)text)
+                                    <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)completedText)
+                                    </RadzenText>
+                                    }
+                                </li>
+                                <li>
+                                    @{
+                                        string createdText = "No Associated <strong>Created</strong> Notification";
+                                        if (task.CreatedNotification != null)
+                                        {
+                                            createdText = "User Created Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.CreatedNotification).Select(x => x.name).FirstOrDefault() + "</strong>";
+                                        }
+                                    <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)createdText)
+                                    </RadzenText>
+                                    }
+                                </li>
+                                <li>
+                                    @{
+                                        string updatedText = "No Associated <strong>Updated</strong> Notification";
+                                        if (task.UpdatedNotification != null)
+                                        {
+                                            updatedText = "User Updated Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.UpdatedNotification).Select(x => x.name).FirstOrDefault() + "</strong>";
+                                        }
+                                    <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)updatedText)
                                     </RadzenText>
                                     }
                                 </li>
@@ -90,20 +125,6 @@
                             </ul>
                         </RadzenColumn>
                     </RadzenRow>
-
-                        <RadzenText TextStyle="TextStyle.H6" Text="Options" />
-                        <ul>
-                            <li>
-                                <RadzenText TextStyle="TextStyle.Body2">Allow Account Creation: <strong>@task.AllowCreateAccount</strong></RadzenText>
-                            </li>
-                            <li>
-                                <RadzenText TextStyle="TextStyle.Body2">Allow Updates: <strong>@task.AllowUpdateFields</strong></RadzenText>
-                            </li>
-
-                            <li>
-                                <RadzenText TextStyle="TextStyle.Body2">Allow Search Logging: <strong>@task.AllowSearchLogging</strong></RadzenText>
-                            </li>
-                        </ul>
                 <div style="margin-top:auto; width: 100%;">
                     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-1">
                         <div>
@@ -151,7 +172,7 @@
     }
         <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="4" SizeXL="3" SizeXX="2" class="h-100">
         <RadzenCard Variant="Variant.Outlined"
-            style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative; padding: 0% !important;"
+            style="border-radius: 10px; height: 500px; display: flex; flex-direction: column; position: relative; padding: 0% !important;"
             class="rz-shadow-4">
             <RadzenButton Icon="add_circle" class="w-100 h-100 big-button" Size="ButtonSize.Large"
                 ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Click="AddNew"

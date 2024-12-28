@@ -5,7 +5,7 @@
 @inject NumpContext _Context
 
 <RadzenTemplateForm data="@newNotification" Submit="@(() => Save())" TItem="NotificationData">
-    <!--<RadzenDropDown Data="@NotificationTypes" TextProperty="Key" ValueProperty="Value" @bind-Value=@newNotification.NotificationType /> -->
+    <RadzenDropDown Data="@NotificationTypes" TextProperty="Key" ValueProperty="Value" @bind-Value=@newNotification.NotificationType />
     <RadzenTextBox Placeholder="Name" @bind-Value=@newNotification.name />
     <RadzenStack Orientation="Orientation.Vertical" Gap="10">
         <RadzenTextBox Placeholder="To" @bind-Value=@sendRecipients />
@@ -45,7 +45,7 @@
         {
             {"Task Completed", 1},
             {"User Created", 2},
-            {"User Modified", 3}
+            {"User Updated", 3}
         };
     string sendRecipients = String.Empty;
     string ccRecipients = String.Empty;

@@ -64,6 +64,8 @@ public partial class UserService
     {
         IngestData? ingest = await _context.IngestData.Where(x => x.Guid == task.AssocIngest).FirstAsync();
 
+        List<NotificationData> notifications = await _context.Notifications.Where(x => x.Guid == task.CompletedNotification || x.Guid == task.CreatedNotification || x.Guid == task.UpdatedNotification).ToListAsync();
+
         task.CurrentStatus = "Running";
         loggedTask = await SaveTaskLog(task, null);
 
@@ -86,13 +88,12 @@ public partial class UserService
             return;
         }
         List<string> csvFiles = Directory.EnumerateFiles(ingest.fileLocation, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".csv")).ToList();
-        int createdUsers = 0;
-        int updatedUsers = 0;
         foreach (string file in csvFiles)
         {
             await CheckCancel(task);
             List<string> headerRow = new List<string>();
-
+            List<DirectoryEntry> allCreatedUsers = new List<DirectoryEntry>();
+            List<DirectoryEntry> allUpdatedUsers = new List<DirectoryEntry>();
             task.MaxCsvRow = await GetRowCount(file);
             OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task)); ;
             Dictionary<int, Dictionary<string, string>> csvData = new Dictionary<int, Dictionary<string, string>>();
@@ -168,8 +169,8 @@ public partial class UserService
                         }
                         try
                         {
-                            await NewUser(ingest, conformableAttributes, csvRecordDictionary, newUser, currLocationMap, task);
-                            createdUsers++;
+                            DirectoryEntry createdUser = await NewUser(ingest, conformableAttributes, csvRecordDictionary, newUser, currLocationMap, task);
+                            allCreatedUsers.Add(createdUser);
                         }
                         catch
                         {
@@ -200,20 +201,30 @@ public partial class UserService
                     }
                     if (updatedValues > 0)
                     {
-                        updatedUsers++;
+                        NotificationData? updatedUserNotification = notifications.Where(x => x.NotificationType == 3).FirstOrDefault();
+                        if (updatedUserNotification != null)
+                        {
+                            List<DirectoryEntry> users = new List<DirectoryEntry>()
+                            {
+                                user
+                            };
+                            await HandleNotifications(task, loggedTask, updatedUserNotification, null, users);
+                        }
+                        allUpdatedUsers.Add(user);
                     }
                     await MoveOn(task, false);
                 }
 
             }
-
-
-
+            loggedTask.CreatedUsers = allCreatedUsers.Count();
+            loggedTask.UpdatedUsers = allUpdatedUsers.Count();
+            NotificationData? completedNotification = notifications.Where(x => x.NotificationType == 1).FirstOrDefault();
+            if (completedNotification != null)
+            {
+                await HandleNotifications(task, loggedTask, completedNotification, allCreatedUsers, allUpdatedUsers);
+            }
         }
-        loggedTask.CreatedUsers = createdUsers;
-        loggedTask.UpdatedUsers = updatedUsers;
 
-        await HandleNotifications(task, loggedTask);
         await StopTask(task, "SUCCESSFUL");
 
 
@@ -226,30 +237,63 @@ public partial class UserService
             throw new OperationCanceledException(task.CancelToken.Token);
         }
     }
-    public async Task HandleNotifications(NumpInstructionSet task, TaskLog taskLog)
+    public async Task HandleNotifications(NumpInstructionSet task, TaskLog taskLog, NotificationData notification, List<DirectoryEntry>? createdUsers = null, List<DirectoryEntry>? updatedUsers = null)
     {
-        NotificationData? notification = await _context.Notifications.Where(x => x.Guid == task.Notifications).FirstOrDefaultAsync();
-
-        if (notification == null)
-        {
-
-            return;
-        }
         Dictionary<string, string> itemsToReplace = new Dictionary<string, string>()
         {
-            {"taskName", task.Name},
-            {"totalRows", task.MaxCsvRow.ToString()},
-            {"logGuid", taskLog.Guid.ToString()},
-            {"createdUserCount", taskLog.CreatedUsers.ToString()},
-            {"updatedUserCount", taskLog.UpdatedUsers.ToString()}
-
+                {"taskName", task.Name},
+                {"totalRows", task.MaxCsvRow.ToString()},
+                {"logGuid", taskLog.Guid.ToString()},
         };
-        string body = await ReplaceVariablesAnonymous(notification.body, itemsToReplace);
+        DirectoryEntry? user = null;
+        string body = notification.body;
+        if (notification == null)
+        {
+            return;
+        }
+        switch (notification.NotificationType)
+        {
+            case 1:
+                itemsToReplace.Add("createdUserCount", taskLog.CreatedUsers.ToString());
+                itemsToReplace.Add("updatedUserCount", taskLog.UpdatedUsers.ToString());
+                body = await ReplaceUserVariables(body, createdUsers, 1, notification.type);
+                body = await ReplaceUserVariables(body, updatedUsers, 2, notification.type);
+                break;
+
+            case 2:
+                user = createdUsers[0];
+                break;
+
+            case 3:
+                user = updatedUsers[0];
+                break;
+
+            default:
+                break;
+
+        }
+        if (user != null)
+        {
+            Dictionary<string, string> userProperties = new Dictionary<string, string>();
+
+            foreach (PropertyValueCollection property in user.Properties)
+            {
+                if (property.Value != null && property.Value.ToString() != string.Empty && (property.Value is string || property.Value is int))
+                {
+                    itemsToReplace.Add(property.PropertyName, property.Value.ToString());
+                }
+            }
+
+        }
+
+        body = await ReplaceVariablesAnonymous(body, itemsToReplace);
+
 
         Setting? emailSetting = await _context.Settings.Where(x => x.SettingName == "Email").FirstOrDefaultAsync();
         if (emailSetting == null)
         {
             Console.WriteLine("Email Not Configured!");
+            return;
         }
         var data = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(emailSetting.Data);
         string emailTypeString = data["emailType"].ToString();
@@ -336,7 +380,7 @@ public partial class UserService
         await _context.SaveChangesAsync();
         return loggedTask;
     }
-    public async Task NewUser(IngestData currentIngest, List<ADAttributeMap> updatableAttributes, Dictionary<string, object> csvRecord, Dictionary<string, string> user, LocationMap? locationMap, NumpInstructionSet task)
+    public async Task<DirectoryEntry> NewUser(IngestData currentIngest, List<ADAttributeMap> updatableAttributes, Dictionary<string, object> csvRecord, Dictionary<string, string> user, LocationMap? locationMap, NumpInstructionSet task)
     {
         try
         {
@@ -484,6 +528,16 @@ public partial class UserService
             {
                 await UpdateUser(updatableAttributes, user, newUser, task, csvRecord, false);
                 await LogUserCreate(task, newUser, "SUCCESSFUL", null, csvRecord);
+                NotificationData? newUserNotification = _context.Notifications.Where(x => x.Guid == task.CreatedNotification).FirstOrDefault();
+                if (newUserNotification != null)
+                {
+                    List<DirectoryEntry> users = new List<DirectoryEntry>()
+                                {
+                                    newUser
+                                };
+                    await HandleNotifications(task, loggedTask, newUserNotification, users);
+                }
+
 
             }
             catch
@@ -493,14 +547,12 @@ public partial class UserService
                 newUserPrincipal.Save();
                 await LogUserCreate(task, newUser, "FAILED", null, csvRecord);
             }
-
-            context.Dispose();
-            newUserPrincipal.Dispose();
+            return newUser;
         }
 
         catch (COMException comEx)
         {
-
+            return null;
             // Optionally, log the HRESULT or other details from the exception
 
         }
@@ -607,7 +659,6 @@ public partial class UserService
             await LogUserUpdate(task, user, "UPDATE", "SUCCESSFUL", "SUCCESSFUL", csvRecord);
         }
         user.CommitChanges();
-        user.Dispose();
         return updatedValues;
     }
     public async Task<Dictionary<string, string>> GetCreds()
@@ -746,6 +797,7 @@ public partial class UserService
             if (propertyName.Contains("@"))
             {
                 dateFormat = propertyName.Split("@")[1];
+                propertyName = propertyName.Split("@")[0];
 
             }
             switch (propertyName)
@@ -756,13 +808,83 @@ public partial class UserService
                 case string str when str.Equals("lastInitial", StringComparison.InvariantCultureIgnoreCase):
                     replacedString = items.ContainsKey("sn") ? replacedString.Replace(match.Value, items["sn"][0].ToString()) : replacedString;
                     break;
-                default:
+
                 case string str when str.Equals("today", StringComparison.InvariantCultureIgnoreCase):
                     replacedString = replacedString.Replace(match.Value, DateTime.Now.ToString(dateFormat));
+                    break;
+                default:
                     break;
             }
         }
         return replacedString;
+    }
+
+    public async Task<string> ReplaceUserVariables(string sourceString, List<DirectoryEntry> users, int NotificationType, string type)
+    {
+        string word = "";
+        switch (NotificationType)
+        {
+            case 1:
+                word = "Created";
+                break;
+            case 2:
+                word = "Modified";
+                break;
+        }
+        string replacedString = sourceString;
+        string? pattern = "";
+        if (sourceString.Contains($"[All{word}Users]"))
+        {
+            pattern = @$"\[All{word}Users\](.*?)\[/All{word}Users\]";
+        }
+        Regex regex = new Regex(pattern);
+        Match match = regex.Match(sourceString);
+
+        if (match.Success && pattern != "")
+        {
+            string allUserData = "";
+            // The group(1) contains the data between <AllUsers> and </AllUsers>
+            string data = match.Groups[1].Value;
+            if (users == null || users.Count() == 0)
+            {
+                allUserData = $"No users have been {word.ToLower()}.";
+            }
+            else
+            {
+                foreach (DirectoryEntry user in users)
+                {
+                    Dictionary<string, string> userProperties = new Dictionary<string, string>();
+
+                    foreach (PropertyValueCollection property in user.Properties)
+                    {
+                        if (property.Value != null && property.Value.ToString() != string.Empty && property.Value is string)
+                        {
+                            userProperties[property.PropertyName] = property.Value.ToString();
+                        }
+                    }
+
+                    string replacedData = await ReplaceVariablesAnonymous(data, userProperties);
+                    allUserData += replacedData;
+                    if (user != users.Last())
+                    {
+                        if (type == "HTML")
+                        {
+                            allUserData += "<br />";
+                        }
+                        if (type == "Text")
+                        {
+                            allUserData += Environment.NewLine;
+
+                        }
+                    }
+                }
+            }
+
+            replacedString = Regex.Replace(replacedString, pattern, allUserData);
+        }
+        return replacedString;
+
+
     }
     private static Random _random = new Random();
 

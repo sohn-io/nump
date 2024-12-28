@@ -104,8 +104,12 @@
                 </RadzenText>
             </HeaderTemplate>
             <ChildContent>
-                <RadzenDropDown Data="@notifications" TextProperty="name" ValueProperty="Guid"
-                    TValue="Guid?" @bind-Value=@newTask.Notifications />
+                <RadzenDropDown Data="@completedNotifications" TextProperty="name" ValueProperty="Guid"
+                    TValue="Guid?" @bind-Value=@newTask.CompletedNotification />
+                <RadzenDropDown Data="@createdNotifications" TextProperty="name" ValueProperty="Guid"
+                    TValue="Guid?" @bind-Value=@newTask.CreatedNotification />
+                <RadzenDropDown Data="@updatedNotifications" TextProperty="name" ValueProperty="Guid"
+                    TValue="Guid?" @bind-Value=@newTask.UpdatedNotification />
             </ChildContent>
         </RadzenPanel>
         <RadzenPanel AllowCollapse="true" class="rz-mb-4">
@@ -165,7 +169,27 @@
             time = TimeOnly.ParseExact("8:00 am", "h:mm tt", CultureInfo.InvariantCulture) // Custom format
         };
     List<IngestData> ingestions = new List<IngestData>();
-    List<NotificationData> notifications = new List<NotificationData>()
+    List<NotificationData> completedNotifications = new List<NotificationData>()
+        {
+            new NotificationData()
+            {
+                Guid = Guid.Empty,
+                name = "None",
+                type = "999",
+                sendRecipientsList = new List<string>()
+            }
+        };
+    List<NotificationData> createdNotifications = new List<NotificationData>()
+        {
+            new NotificationData()
+            {
+                Guid = Guid.Empty,
+                name = "None",
+                type = "999",
+                sendRecipientsList = new List<string>()
+            }
+        };
+    List<NotificationData> updatedNotifications = new List<NotificationData>()
         {
             new NotificationData()
             {
@@ -192,7 +216,10 @@
         await base.OnInitializedAsync();
         instructionSet = await _Context.Tasks.ToListAsync();
         ingestions = await _Context.IngestData.ToListAsync();
-        notifications.AddRange(await _Context.Notifications.ToListAsync());
+        var validNotifications = await _Context.Notifications.ToListAsync();
+        completedNotifications.AddRange(validNotifications.Where(x => x.NotificationType == 1).ToList());
+        createdNotifications.AddRange(validNotifications.Where(x => x.NotificationType == 2).ToList());
+        updatedNotifications.AddRange(validNotifications.Where(x => x.NotificationType == 3).ToList());
         if (existingGuid != null)
         {
             var existingTask = await _Context.Tasks.Where(x => x.Guid == existingGuid).FirstOrDefaultAsync();
@@ -214,9 +241,17 @@
         {
             newTask.ParentTask = null;
         }
-        if (newTask.Notifications == Guid.Empty)
+        if (newTask.CompletedNotification == Guid.Empty)
         {
-            newTask.Notifications = null;
+            newTask.CompletedNotification = null;
+        }
+        if (newTask.CreatedNotification == Guid.Empty)
+        {
+            newTask.CreatedNotification = null;
+        }
+        if (newTask.UpdatedNotification == Guid.Empty)
+        {
+            newTask.UpdatedNotification = null;
         }
         if (_Context.Tasks.Any(e => e.Guid == newTask.Guid))
         {

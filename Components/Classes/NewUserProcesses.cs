@@ -187,7 +187,9 @@ public class NumpInstructionSet : IHasGuid
     public DateTime Created { get; set; }
     public DateTime? Modified { get; set; }
     public string Frequency { get; set; }
-    public Guid? Notifications { get; set; }
+    public Guid? CompletedNotification { get; set; }
+    public Guid? CreatedNotification { get; set; }
+    public Guid? UpdatedNotification { get; set; }
     public Guid AssocIngest { get; set; }
     public bool AllowUpdateFields { get; set; }
     public bool AllowCreateAccount { get; set; }
