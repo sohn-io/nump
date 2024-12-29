@@ -18,12 +18,12 @@ public class TaskSchedulerService
     public class ScheduledTaskTimer
     {
         public Timer Timer { get; set; }
-        public NumpInstructionSet Task { get; set; }
+        public Guid TaskGuid { get; set; }
 
-        public ScheduledTaskTimer(Timer timer, NumpInstructionSet task)
+        public ScheduledTaskTimer(Timer timer, Guid task)
         {
             Timer = timer;
-            Task = task;
+            TaskGuid = task;
         }
     }
     public async Task StartSchedulingAsync()
@@ -51,7 +51,7 @@ public class TaskSchedulerService
 private void RemoveExistingTimerForTask(NumpInstructionSet task)
 {
     // Find the existing ScheduledTaskTimer that matches the given task
-    var existingTimer = _timers.FirstOrDefault(st => st.Task.Guid == task.Guid);
+    var existingTimer = _timers.FirstOrDefault(st => st.TaskGuid == task.Guid);
     if (existingTimer != null)
     {
         existingTimer.Timer.Dispose(); // Dispose of the old timer
@@ -81,20 +81,20 @@ private void RemoveExistingTimerForTask(NumpInstructionSet task)
             {
                 // Create a new Timer for this specific task
                 var timer = new Timer(
-                    async _ => await RunScheduledTaskAsync(task, dbContext),
+                    async _ => await RunScheduledTaskAsync(task.Guid),
                     null,
                     delayTime,
                     Timeout.InfiniteTimeSpan
                 );
 
-                var scheduledTaskTimer = new ScheduledTaskTimer(timer, task);
+                var scheduledTaskTimer = new ScheduledTaskTimer(timer, task.Guid);
                 _timers.Add(scheduledTaskTimer);
 
                 Console.WriteLine($"{task.Name} scheduled to run at {task.NextRunTime}");
             }
         }
     }
-    private async Task RunScheduledTaskAsync(NumpInstructionSet task, NumpContext dbContext)
+    private async Task RunScheduledTaskAsync(Guid taskGuid)
     {
         try
         {
@@ -104,13 +104,13 @@ private void RemoveExistingTimerForTask(NumpInstructionSet task)
             var userService = scope.ServiceProvider.GetRequiredService<nump.Components.Services.UserService>();
     
             // Now you can call ActuallyDoTask on the scoped service
-            await userService.ActuallyDoTask(task);
+            await userService.ActuallyDoTask(taskGuid);
         }
         }
         catch (Exception ex)
         {
             // Handle any exceptions that may occur during the task execution
-            Console.WriteLine($"Error executing task {task.Guid}: {ex.Message}");
+            Console.WriteLine($"Error executing task {taskGuid}: {ex.Message}");
         }
     }
 

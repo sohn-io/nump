@@ -33,8 +33,8 @@
                 Notifications* </td>
         </tr>
         <tr>
-            <td class="newclass">Header Variables</td>
-            <td class="newclass">Task Complete Notifications ONLY</td>
+            <td class="newclass">Notification Variables</td>
+            <td class="newclass">All Notifications</td>
         </tr>
     </table>
 
@@ -96,9 +96,16 @@
         <code>lastInitial</code> : gets last initial using CSV Data if last name is selected.<br />
     </RadzenText>
 </div>
+
 <div class="rz-mb-4">
-    <RadzenText TextStyle="TextStyle.DisplayH5">Header Variables</RadzenText>
+    <RadzenText TextStyle="TextStyle.DisplayH5">Notification Variables</RadzenText>
     <RadzenText TextStyle="TextStyle.Body2">
+        <code>taskame</code>: Name of task that generated notification.<br />
+        <code>totalRows</code>: Total rows in current CSV file.<br />
+        <code>logGuid</code>: Task log guid, used to link directly to the task log of the task that generated the notification. (e.g. http://localhost/history/user/{{logGuid}})<br /> <br />
+        <strong>The following are Task Complete Notifications ONLY: <br /></strong>
+        <code>createdUserCount</code>:Count of all users created by the task that generated the notification.<br />
+        <code>updatedUserCount</code>:Count of all users updated by the task that generated the notification.<br />
         <code>[AllCreatedUsers] * [/AllCreatedUsers]</code>: Use like html. anything in between brackets will be
         repeated
         for each user created.<br />

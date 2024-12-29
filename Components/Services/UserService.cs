@@ -29,6 +29,7 @@ public partial class UserService
         _context = context;
         _notify = notify;
         _pw = pw;
+
     }
     public class TaskUpdatedEventArgs : EventArgs
     {
@@ -48,46 +49,48 @@ public partial class UserService
         //GetSamAccountNames();
     }
 
-    public async Task ActuallyDoTask(NumpInstructionSet task)
+    public async Task ActuallyDoTask(Guid taskId)
     {
-        task.CancelToken = new CancellationTokenSource();
-        await DoTask(task);
-        loggedTask = null;
-        NumpInstructionSet childTask = _context.Tasks.Where(x => x.ParentTask == task.Guid && x.Enabled == true).FirstOrDefault();
-        if (childTask != null)
+        NumpInstructionSet? task = _context.Tasks.Where(x => x.Guid == taskId).Include(p => p.IngestChild).ThenInclude(p => p.LocationMapChild).FirstOrDefault();
+        if (task != null)
         {
-            childTask.CancelToken = new CancellationTokenSource();
-            await DoTask(childTask);
+            task.CancelToken = new CancellationTokenSource();
+            await DoTask(task);
+        }
+        loggedTask = null;
+        Guid? childTaskGuid = await _context.Tasks.Where(x => x.ParentTask == task.Guid && x.Enabled == true).Select(x => x.Guid).FirstOrDefaultAsync();
+        if (childTaskGuid.HasValue && childTaskGuid.Value != Guid.Empty)
+        {
+            await ActuallyDoTask(childTaskGuid.Value);
         }
     }
     public async Task DoTask(NumpInstructionSet task)
     {
-        IngestData? ingest = await _context.IngestData.Where(x => x.Guid == task.AssocIngest).FirstAsync();
-
+        
         List<NotificationData> notifications = await _context.Notifications.Where(x => x.Guid == task.CompletedNotification || x.Guid == task.CreatedNotification || x.Guid == task.UpdatedNotification).ToListAsync();
 
         task.CurrentStatus = "Running";
         loggedTask = await SaveTaskLog(task, null);
 
-        List<ADAttributeMap> enabledAttributes = ingest.attributeMap.Where(x => x.enabled).ToList();
+        List<ADAttributeMap> enabledAttributes = task.IngestChild.attributeMap.Where(x => x.enabled).ToList();
         List<ADAttributeMap> requiredAttributes = enabledAttributes.Where(x => x.required).ToList();
         List<ADAttributeMap> updatableAttributes = enabledAttributes.Where(x => x.allowUpdate).ToList();
-        List<ADAttributeMap> conformableAttributes = enabledAttributes.Where(x => x.required || x.allowUpdate).ToList();
+        List<ADAttributeMap> conformableAttributes = requiredAttributes.Concat(updatableAttributes).ToList();
 
         List<string> headersToCheck = conformableAttributes.Select(x => x.associatedColumn).ToList();
-        LocationMap? currLocationMap = _context.LocationMaps.Where(x => x.Guid == ingest.locationMap).FirstOrDefault();
+        LocationMap? currLocationMap = _context.LocationMaps.Where(x => x.Guid == task.IngestChild.locationMap).FirstOrDefault();
 
-        if (ingest.adLocationColumn != null)
+        if (task.IngestChild.adLocationColumn != null)
         {
-            headersToCheck.Add(ingest.adLocationColumn);
+            headersToCheck.Add(task.IngestChild.adLocationColumn);
         }
 
         //Initialization
-        if (ingest == null || !Directory.Exists(ingest.fileLocation))
+        if (task.IngestChild == null || !Directory.Exists(task.IngestChild.fileLocation))
         {
             return;
         }
-        List<string> csvFiles = Directory.EnumerateFiles(ingest.fileLocation, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".csv")).ToList();
+        List<string> csvFiles = Directory.EnumerateFiles(task.IngestChild.fileLocation, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".csv")).ToList();
         foreach (string file in csvFiles)
         {
             await CheckCancel(task);
@@ -169,7 +172,7 @@ public partial class UserService
                         }
                         try
                         {
-                            DirectoryEntry createdUser = await NewUser(ingest, conformableAttributes, csvRecordDictionary, newUser, currLocationMap, task);
+                            DirectoryEntry createdUser = await NewUser(task, conformableAttributes, csvRecordDictionary, newUser);
                             allCreatedUsers.Add(createdUser);
                         }
                         catch
@@ -213,6 +216,7 @@ public partial class UserService
                         allUpdatedUsers.Add(user);
                     }
                     await MoveOn(task, false);
+
                 }
 
             }
@@ -223,8 +227,12 @@ public partial class UserService
             {
                 await HandleNotifications(task, loggedTask, completedNotification, allCreatedUsers, allUpdatedUsers);
             }
+            foreach (var user in allCreatedUsers.Concat(allUpdatedUsers))
+            {
+                user.Dispose();
+            }
         }
-
+        
         await StopTask(task, "SUCCESSFUL");
 
 
@@ -380,265 +388,17 @@ public partial class UserService
         await _context.SaveChangesAsync();
         return loggedTask;
     }
-    public async Task<DirectoryEntry> NewUser(IngestData currentIngest, List<ADAttributeMap> updatableAttributes, Dictionary<string, object> csvRecord, Dictionary<string, string> user, LocationMap? locationMap, NumpInstructionSet task)
-    {
-        try
-        {
 
-            if (currentIngest.accountOption.AccountDescriptionValue != null)
-            {
-                switch (currentIngest.accountOption.AccountDescriptionType)
-                {
-                    case "Custom":
-                        string desc = await ReplaceVariablesAnonymous(currentIngest.accountOption.AccountDescriptionValue, user);
-                        user.Add("description", desc);
-                        break;
-                    case "Column":
-                        user.Add("description", csvRecord[currentIngest.accountOption.AccountDescriptionValue].ToString());
-                        break;
-                    default:
-                        break;
-                }
-            }
-            if (currentIngest.accountOption.DisplayNameValue != null)
-            {
-                switch (currentIngest.accountOption.DisplayNameType)
-                {
-                    case "Custom":
-                        string display = await ReplaceVariablesAnonymous(currentIngest.accountOption.DisplayNameValue, user);
-                        user.Add("displayName", display);
-                        break;
-                    case "Column":
-                        user.Add("displayName", csvRecord[currentIngest.accountOption.DisplayNameValue].ToString());
-                        break;
-                    default:
-                        break;
-                }
-            }
-            /* @@@ Location @@@ */
-            string ouPath = await GetOUDistinguishedName(currentIngest, csvRecord, locationMap);
-
-            if (locationMap != null)
-            {
-                string tentativeOuPath = await GetOUDistinguishedName(currentIngest, csvRecord, locationMap);
-                if (tentativeOuPath != null && tentativeOuPath != String.Empty && tentativeOuPath != "")
-                {
-
-                    ouPath = tentativeOuPath;
-                }
-            }
-            Dictionary<string, string> creds = await GetCreds();
-            List<DirectoryEntry> returnItem = new List<DirectoryEntry>();
-            // Define the LDAP path for your Active Directory domain
-            string ldapPath = $"LDAP://" + creds["domain"] + "/" + ouPath;
-            string username = creds.ContainsKey("username") ? creds["username"] : null;
-            string password = creds.ContainsKey("password") ? creds["password"] : null;
-            PrincipalContext context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath, username + "@" + creds["domain"], password);
-
-            /* @@@ Account Name @@@ */
-            string sam = await FindValidUsername(currentIngest.accountOption, user);
-            sam = sam.ToLower();
-            user.Add("samAccountName", sam);
-
-            switch (currentIngest.emailOption.option)
-            {
-                case "Custom":
-                    user.Add("mail", await ReplaceVariablesAnonymous(currentIngest.emailOption.value, user));
-                    break;
-                case "Column":
-                    user.Add("mail", csvRecord[currentIngest.emailOption.value].ToString());
-                    break;
-                default:
-                    break;
-            }
-            switch (currentIngest.managerOption.option)
-            {
-                case "Custom":
-                    user.Add("manager", await ReplaceVariablesAnonymous(currentIngest.managerOption.value, user));
-                    break;
-                case "Column":
-                    Dictionary<string, string> requiredElements = new Dictionary<string, string>()
-                {
-                    {currentIngest.managerOption.sourceColumn, csvRecord[currentIngest.managerOption.value].ToString()}
-                };
-                    var Managers = await FindUser(requiredElements);
-                    if (Managers != null)
-                    {
-                        user.Add("manager", Managers[0].Properties["distinguishedName"].Value.ToString());
-                    }
-                    else
-                    {
-
-                    }
-                    break;
-                default:
-                    break;
-            }
-            UserPrincipal newUserPrincipal = new UserPrincipal(context)
-            {
-                GivenName = user.ContainsKey("givenName") ? user["givenName"] : null,
-                Surname = user.ContainsKey("sn") ? user["sn"] : null,
-                DisplayName = user.ContainsKey("displayName") ? user["displayName"] : null,
-                SamAccountName = sam,
-                UserPrincipalName = sam + "@" + creds["domain"],
-                Enabled = true,
-                Description = user.ContainsKey("description") ? user["description"] : null,
-                EmailAddress = user.ContainsKey("mail") ? user["mail"] : null,
-                AccountExpirationDate = task.AccountExpirationDays > 0 ? DateTime.Now.AddDays(task.AccountExpirationDays) : null
-
-            };
-            newUserPrincipal.PasswordNotRequired = false;
-
-            string acctPassword = "";
-            switch (currentIngest.accountOption.PasswordCreationType)
-            {
-                case "Custom":
-                    acctPassword = await ReplaceVariablesAnonymous(currentIngest.accountOption.PasswordCreationValue, user);
-                    break;
-                case "RandomPassword":
-                    acctPassword = _pw.GeneratePassword(currentIngest.accountOption.PasswordOptions);
-                    break;
-                case "Column":
-                    acctPassword = csvRecord[currentIngest.accountOption.PasswordCreationValue].ToString();
-                    break;
-                case "RandomPassphrase":
-                    acctPassword = _pw.GeneratePassphrase(currentIngest.accountOption.PasswordOptions);
-                    break;
-                default:
-                    break;
-            }
-            for (int i = 0; i < 5; i++)
-            {
-
-            }
-
-            newUserPrincipal.SetPassword(acctPassword);
-            newUserPrincipal.ExpirePasswordNow();
-            try
-            {
-                newUserPrincipal.Save();
-            }
-            catch
-            {
-            }
-            acctPassword = "";
-
-            DirectoryEntry newUser = (DirectoryEntry)newUserPrincipal.GetUnderlyingObject();
-            try
-            {
-                await UpdateUser(updatableAttributes, user, newUser, task, csvRecord, false);
-                await LogUserCreate(task, newUser, "SUCCESSFUL", null, csvRecord);
-                NotificationData? newUserNotification = _context.Notifications.Where(x => x.Guid == task.CreatedNotification).FirstOrDefault();
-                if (newUserNotification != null)
-                {
-                    List<DirectoryEntry> users = new List<DirectoryEntry>()
-                                {
-                                    newUser
-                                };
-                    await HandleNotifications(task, loggedTask, newUserNotification, users);
-                }
-
-
-            }
-            catch
-            {
-
-                newUserPrincipal.Delete();
-                newUserPrincipal.Save();
-                await LogUserCreate(task, newUser, "FAILED", null, csvRecord);
-            }
-            return newUser;
-        }
-
-        catch (COMException comEx)
-        {
-            return null;
-            // Optionally, log the HRESULT or other details from the exception
-
-        }
-    }
-
-    public async Task<string> FindValidUsername(AccountOptions accountOption, Dictionary<string, string> user)
-    {
-
-        string tentativeUPN = String.Empty;
-        switch (accountOption.CreationType)
-        {
-            case "Custom":
-                tentativeUPN = await ReplaceVariablesAnonymous(accountOption.CreationValue, user);
-                tentativeUPN = Regex.Replace(tentativeUPN, @"[^\w]", "");
-                Dictionary<string, string> upn = new Dictionary<string, string>()
-                {
-                    {"cn", tentativeUPN}
-                };
-                List<DirectoryEntry> existingUser = await FindUser(upn);
-                if (existingUser != null)
-                {
-                    int i = 0;
-                    string sourceUpn = tentativeUPN;
-                    do
-                    {
-                        tentativeUPN = sourceUpn + i;
-                        upn["cn"] = tentativeUPN;
-
-                        existingUser = await FindUser(upn);
-                        i++;
-                    } while (existingUser != null);
-                }
-                break;
-            case "Column":
-                tentativeUPN = user[accountOption.CreationValue];
-                break;
-            default:
-                break;
-        };
-
-        return tentativeUPN;
-    }
-    public async Task<string?> GetOUDistinguishedName(IngestData currentIngest, Dictionary<string, object> csvRecord, LocationMap locationMap)
-    {
-        string locationValue = String.Empty;
-        try
-        {
-            locationValue = csvRecord[currentIngest.adLocationColumn].ToString();
-        }
-        catch (Exception ex)
-        {
-
-        }
-        if (locationValue == "")
-        {
-            return String.Empty;
-        }
-        string? adGuid = locationMap.locationList.Where(x => x.sourceColumnValue == locationValue).Select(x => x.adOUGuid).FirstOrDefault();
-        if (adGuid == null)
-        {
-            adGuid = locationMap.defaultLocation;
-        }
-        Dictionary<string, string> requiredElements = new Dictionary<string, string>
-                {
-                    {"objectGuid", adGuid}
-                };
-
-        List<DirectoryEntry> ouItem = await FindUser(requiredElements);
-        if (ouItem != null && ouItem.Count() == 1)
-        {
-            return ouItem[0].Properties["distinguishedName"].Value.ToString();
-        }
-        return null;
-    }
     public async Task<int?> UpdateUser(List<ADAttributeMap> updatableAttributes, Dictionary<string, string> newUser, DirectoryEntry user, NumpInstructionSet task, Dictionary<string, object> csvRecord, bool logUpdateUser)
     {
         int updatedValues = 0;
+
         foreach (ADAttributeMap attribute in updatableAttributes)
         {
             string? attributeValue = user.Properties[attribute.selectedAttribute]?.Value?.ToString();
-            var updatedValue = newUser.Any(k => k.Key == attribute.selectedAttribute) ? newUser[attribute.selectedAttribute] : null;
-            if (updatedValue == null)
-            {
-                continue;
-            }
-            if (attributeValue != updatedValue || attributeValue == null)
+            string? updatedValue = newUser.GetValueOrDefault(attribute.selectedAttribute);
+
+            if (updatedValue != null && (attributeValue != updatedValue || attributeValue == null))
             {
                 user.Properties[attribute.selectedAttribute].Value = updatedValue;
                 updatedValues++;
@@ -648,16 +408,18 @@ public partial class UserService
                     await LogUserUpdate(task, user, attribute.selectedAttribute, attributeValue, updatedValue, null);
                 }
             }
+        }
 
-        }
-        if (newUser.ContainsKey("manager"))
+        if (newUser.TryGetValue("manager", out string? manager))
         {
-            user.Properties["manager"].Value = newUser["manager"];
+            user.Properties["manager"].Value = manager;
         }
+
         if (updatedValues > 0 && logUpdateUser)
         {
             await LogUserUpdate(task, user, "UPDATE", "SUCCESSFUL", "SUCCESSFUL", csvRecord);
         }
+
         user.CommitChanges();
         return updatedValues;
     }
@@ -828,7 +590,7 @@ public partial class UserService
                 word = "Created";
                 break;
             case 2:
-                word = "Modified";
+                word = "Updated";
                 break;
         }
         string replacedString = sourceString;
@@ -947,5 +709,272 @@ public partial class UserService
         }
         return Guid.Empty;
     }
+
+    /* NEW USER STUFF */
+    public async Task<DirectoryEntry> NewUser(NumpInstructionSet task, List<ADAttributeMap> updatableAttributes, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    {
+        try
+        {
+            await SetUserDescription(task, csvRecord, user);
+            await SetUserDisplayName(task, csvRecord, user);
+
+            string ouPath = await GetTentativeOuPath(task, csvRecord);
+            Dictionary<string, string> creds = await GetCreds();
+            string ldapPath = $"LDAP://" + creds["domain"] + "/" + ouPath;
+            PrincipalContext context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath, creds["username"] + "@" + creds["domain"], creds["password"]);
+
+            string sam = await FindValidUsername(task.IngestChild.accountOption, user);
+            sam = sam.ToLower();
+            user.Add("samAccountName", sam);
+
+            await SetUserEmail(task, csvRecord, user);
+            await SetUserManager(task, csvRecord, user);
+
+            UserPrincipal newUserPrincipal = CreateUserPrincipal(context, user, sam, creds["domain"], task.AccountExpirationDays);
+            string acctPassword = await GeneratePassword(task, csvRecord, user);
+
+            newUserPrincipal.SetPassword(acctPassword);
+            newUserPrincipal.ExpirePasswordNow();
+
+            try
+            {
+                newUserPrincipal.Save();
+            }
+            catch
+            {
+                // Handle exception
+            }
+
+            DirectoryEntry newUser = (DirectoryEntry)newUserPrincipal.GetUnderlyingObject();
+            await HandleNewUser(task, updatableAttributes, user, newUser, csvRecord);
+
+            return newUser;
+        }
+        catch (COMException comEx)
+        {
+            // Optionally, log the HRESULT or other details from the exception
+            return null;
+        }
+    }
+
+    private async Task SetUserDescription(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    {
+        if (task.IngestChild.accountOption.AccountDescriptionValue != null)
+        {
+            switch (task.IngestChild.accountOption.AccountDescriptionType)
+            {
+                case "Custom":
+                    string desc = await ReplaceVariablesAnonymous(task.IngestChild.accountOption.AccountDescriptionValue, user);
+                    user.Add("description", desc);
+                    break;
+                case "Column":
+                    user.Add("description", csvRecord[task.IngestChild.accountOption.AccountDescriptionValue].ToString());
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    private async Task SetUserDisplayName(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    {
+        if (task.IngestChild.accountOption.DisplayNameValue != null)
+        {
+            switch (task.IngestChild.accountOption.DisplayNameType)
+            {
+                case "Custom":
+                    string display = await ReplaceVariablesAnonymous(task.IngestChild.accountOption.DisplayNameValue, user);
+                    user.Add("displayName", display);
+                    break;
+                case "Column":
+                    user.Add("displayName", csvRecord[task.IngestChild.accountOption.DisplayNameValue].ToString());
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    private async Task<string> GetTentativeOuPath(NumpInstructionSet task, Dictionary<string, object> csvRecord)
+    {
+        string ouPath = "";
+        if (task.IngestChild.LocationMapChild != null)
+        {
+            string tentativeOuPath = await GetOUDistinguishedName(task.IngestChild, csvRecord);
+            if (!string.IsNullOrEmpty(tentativeOuPath))
+            {
+                ouPath = tentativeOuPath;
+            }
+        }
+        return ouPath;
+    }
+
+    private async Task SetUserEmail(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    {
+        switch (task.IngestChild.emailOption.option)
+        {
+            case "Custom":
+                user.Add("mail", await ReplaceVariablesAnonymous(task.IngestChild.emailOption.value, user));
+                break;
+            case "Column":
+                user.Add("mail", csvRecord[task.IngestChild.emailOption.value].ToString());
+                break;
+            default:
+                break;
+        }
+    }
+
+    private async Task SetUserManager(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    {
+        switch (task.IngestChild.managerOption.option)
+        {
+            case "Custom":
+                user.Add("manager", await ReplaceVariablesAnonymous(task.IngestChild.managerOption.value, user));
+                break;
+            case "Column":
+                Dictionary<string, string> requiredElements = new Dictionary<string, string>
+                {
+                    {task.IngestChild.managerOption.sourceColumn, csvRecord[task.IngestChild.managerOption.value].ToString()}
+                };
+                var Managers = await FindUser(requiredElements);
+                if (Managers != null)
+                {
+                    user.Add("manager", Managers[0].Properties["distinguishedName"].Value.ToString());
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    private UserPrincipal CreateUserPrincipal(PrincipalContext context, Dictionary<string, string> user, string sam, string domain, int accountExpirationDays)
+    {
+        return new UserPrincipal(context)
+        {
+            GivenName = user.ContainsKey("givenName") ? user["givenName"] : null,
+            Surname = user.ContainsKey("sn") ? user["sn"] : null,
+            DisplayName = user.ContainsKey("displayName") ? user["displayName"] : null,
+            SamAccountName = sam,
+            UserPrincipalName = sam + "@" + domain,
+            Enabled = true,
+            Description = user.ContainsKey("description") ? user["description"] : null,
+            EmailAddress = user.ContainsKey("mail") ? user["mail"] : null,
+            AccountExpirationDate = accountExpirationDays > 0 ? DateTime.Now.AddDays(accountExpirationDays) : null
+        };
+    }
+
+    private async Task<string> GeneratePassword(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    {
+        string acctPassword = "";
+        switch (task.IngestChild.accountOption.PasswordCreationType)
+        {
+            case "Custom":
+                acctPassword = await ReplaceVariablesAnonymous(task.IngestChild.accountOption.PasswordCreationValue, user);
+                break;
+            case "RandomPassword":
+                acctPassword = _pw.GeneratePassword(task.IngestChild.accountOption.PasswordOptions);
+                break;
+            case "Column":
+                acctPassword = csvRecord[task.IngestChild.accountOption.PasswordCreationValue].ToString();
+                break;
+            case "RandomPassphrase":
+                acctPassword = _pw.GeneratePassphrase(task.IngestChild.accountOption.PasswordOptions);
+                break;
+            default:
+                break;
+        }
+        return acctPassword;
+    }
+    public async Task<string> FindValidUsername(AccountOptions accountOption, Dictionary<string, string> user)
+    {
+
+        string tentativeUPN = String.Empty;
+        switch (accountOption.CreationType)
+        {
+            case "Custom":
+                tentativeUPN = await ReplaceVariablesAnonymous(accountOption.CreationValue, user);
+                tentativeUPN = Regex.Replace(tentativeUPN, @"[^\w]", "");
+                Dictionary<string, string> upn = new Dictionary<string, string>()
+                {
+                    {"cn", tentativeUPN}
+                };
+                List<DirectoryEntry> existingUser = await FindUser(upn);
+                if (existingUser != null)
+                {
+                    int i = 0;
+                    string sourceUpn = tentativeUPN;
+                    do
+                    {
+                        tentativeUPN = sourceUpn + i;
+                        upn["cn"] = tentativeUPN;
+
+                        existingUser = await FindUser(upn);
+                        i++;
+                    } while (existingUser != null);
+                }
+                break;
+            case "Column":
+                tentativeUPN = user[accountOption.CreationValue];
+                break;
+            default:
+                break;
+        };
+
+        return tentativeUPN;
+    }
+    private async Task HandleNewUser(NumpInstructionSet task, List<ADAttributeMap> updatableAttributes, Dictionary<string, string> user, DirectoryEntry newUser, Dictionary<string, object> csvRecord)
+    {
+        try
+        {
+            await UpdateUser(updatableAttributes, user, newUser, task, csvRecord, false);
+            await LogUserCreate(task, newUser, "SUCCESSFUL", null, csvRecord);
+            NotificationData? newUserNotification = _context.Notifications.Where(x => x.Guid == task.CreatedNotification).FirstOrDefault();
+            if (newUserNotification != null)
+            {
+                List<DirectoryEntry> users = new List<DirectoryEntry> { newUser };
+                await HandleNotifications(task, loggedTask, newUserNotification, users);
+            }
+        }
+        catch
+        {
+            newUser.DeleteTree();
+            await LogUserCreate(task, newUser, "FAILED", null, csvRecord);
+            newUser.Dispose();
+
+        }
+    }
+    public async Task<string?> GetOUDistinguishedName(IngestData currentIngest, Dictionary<string, object> csvRecord)
+    {
+        string locationValue = String.Empty;
+        try
+        {
+            locationValue = csvRecord[currentIngest.adLocationColumn].ToString();
+        }
+        catch (Exception ex)
+        {
+
+        }
+        if (locationValue == "")
+        {
+            return String.Empty;
+        }
+        string? adGuid = currentIngest.LocationMapChild.locationList.Where(x => x.sourceColumnValue == locationValue).Select(x => x.adOUGuid).FirstOrDefault();
+        if (adGuid == null)
+        {
+            adGuid = currentIngest.LocationMapChild.defaultLocation;
+        }
+        Dictionary<string, string> requiredElements = new Dictionary<string, string>
+                {
+                    {"objectGuid", adGuid}
+                };
+
+        List<DirectoryEntry> ouItem = await FindUser(requiredElements);
+        if (ouItem != null && ouItem.Count() == 1)
+        {
+            return ouItem[0].Properties["distinguishedName"].Value.ToString();
+        }
+        return null;
+    }
 }
+
 

@@ -132,7 +132,7 @@
                             {
                             <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="play_arrow" Variant="Variant.Outlined"
                                 Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1" Disabled="@(!task.Enabled)"
-                                Click="@(args => StartTask(task))" @onclick:stopPropagation="true" />
+                                Click="@(args => StartTask(task.Guid))" @onclick:stopPropagation="true" />
                             }
                             @if (task.CurrentStatus == "Running")
                             {
@@ -191,9 +191,8 @@
 
 
 
-    private async Task StartTask(NumpInstructionSet task)
+    private async Task StartTask(Guid task)
     {
-        task.CancelToken = new CancellationTokenSource();
         await _user.ActuallyDoTask(task);
 
     }

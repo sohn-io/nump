@@ -3,9 +3,11 @@
 @inject SaveService<NotificationData> _Save
 @inject NavigationManager _Nav
 @inject NumpContext _Context
+@inject DialogService DialogService
 
 <RadzenTemplateForm data="@newNotification" Submit="@(() => Save())" TItem="NotificationData">
-    <RadzenDropDown Data="@NotificationTypes" TextProperty="Key" ValueProperty="Value" @bind-Value=@newNotification.NotificationType />
+    <RadzenDropDown Data="@NotificationTypes" TextProperty="Key" ValueProperty="Value"
+        @bind-Value=@newNotification.NotificationType />
     <RadzenTextBox Placeholder="Name" @bind-Value=@newNotification.name />
     <RadzenStack Orientation="Orientation.Vertical" Gap="10">
         <RadzenTextBox Placeholder="To" @bind-Value=@sendRecipients />
@@ -14,12 +16,17 @@
     </RadzenStack>
 
     <RadzenTextBox Placeholder="Subject" @bind-Value=@newNotification.header />
-    <RadzenRadioButtonList @bind-Value=@newNotification.type TValue="string">
-        <Items>
-            <RadzenRadioButtonListItem Text="Plain Text" Value="@("Text")" />
-            <RadzenRadioButtonListItem Text="HTML" Value="@("HTML")" />
-        </Items>
-    </RadzenRadioButtonList>
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
+        <RadzenRadioButtonList @bind-Value=@newNotification.type TValue="string">
+            <Items>
+                <RadzenRadioButtonListItem Text="Plain Text" Value="@("Text")" />
+                <RadzenRadioButtonListItem Text="HTML" Value="@("HTML")" />
+            </Items>
+        </RadzenRadioButtonList>
+        <RadzenButton Click="@(() => ShowVariableInfo())" Text="Variable Info" Variant="Variant.Text"
+            Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Primary" />
+    </RadzenStack>
+
     @if (newNotification.type == "HTML")
     {
         <RadzenHtmlEditor @bind-Value=@newNotification.body style="min-height: 300px;" />
@@ -42,11 +49,11 @@
             type = "HTML"
         };
     Dictionary<string, int> NotificationTypes = new Dictionary<string, int>()
-        {
-            {"Task Completed", 1},
-            {"User Created", 2},
-            {"User Updated", 3}
-        };
+{
+{"Task Completed", 1},
+{"User Created", 2},
+{"User Updated", 3}
+};
     string sendRecipients = String.Empty;
     string ccRecipients = String.Empty;
     string bccRecipients = String.Empty;
@@ -76,6 +83,16 @@
         _Nav.NavigateTo("/notifications");
 
     }
+    public async Task ShowVariableInfo()
+    {
+        DialogService.OpenSideAsync<VariableInfo>("Variable Info", options: new SideDialogOptions
+            {
+                CloseDialogOnOverlayClick = true,
+                Position = DialogPosition.Right,
+                ShowMask = true,
+                Width = "25%"
+            });
+    }
     protected override async Task OnInitializedAsync()
     {
         if (existingGuid != null)
@@ -84,11 +101,15 @@
             if (existingNotification != null)
             {
                 newNotification = existingNotification;
-                sendRecipients = existingNotification.sendRecipientsList != null ? String.Join(";", existingNotification.sendRecipientsList) : String.Empty;
-                ccRecipients = existingNotification.ccRecipientsList != null ? String.Join(";", existingNotification.ccRecipientsList) : String.Empty;
-                bccRecipients = existingNotification.bccRecipientsList != null ? String.Join(";", existingNotification.bccRecipientsList): String.Empty;
+                sendRecipients = existingNotification.sendRecipientsList != null ? String.Join(";",
+                existingNotification.sendRecipientsList) : String.Empty;
+                ccRecipients = existingNotification.ccRecipientsList != null ? String.Join(";", existingNotification.ccRecipientsList) :
+                String.Empty;
+                bccRecipients = existingNotification.bccRecipientsList != null ? String.Join(";",
+                existingNotification.bccRecipientsList) : String.Empty;
             }
 
         }
     }
+
 }

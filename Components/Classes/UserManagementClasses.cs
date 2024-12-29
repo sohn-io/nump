@@ -133,6 +133,7 @@ public class IngestData : IHasGuid
     public string _emailOption { get; set; }
     public string _managerOption { get; set; }
     public Guid locationMap { get; set; }
+    public LocationMap LocationMapChild {get; set;}
 
     public string _attributeMap { get; set; }
     [NotMapped]
@@ -191,6 +192,8 @@ public class NumpInstructionSet : IHasGuid
     public Guid? CreatedNotification { get; set; }
     public Guid? UpdatedNotification { get; set; }
     public Guid AssocIngest { get; set; }
+    public IngestData IngestChild { get; set; }
+
     public bool AllowUpdateFields { get; set; }
     public bool AllowCreateAccount { get; set; }
     public bool AllowSearchLogging { get; set; }
