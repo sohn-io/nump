@@ -1,0 +1,76 @@
+@inject DialogService dialogService
+
+<RadzenFormField Variant="Variant.Outlined" style="box-sizing: border-box; margin-left: 16px; width: calc(100% - 32px);"
+    class="rz-mb-4">
+    <Start>
+        <RadzenIcon Icon="search" />
+    </Start>
+    <ChildContent>
+        <RadzenTextBox @bind-Value="@searchValue" @oninput=@Search />
+    </ChildContent>
+</RadzenFormField>
+
+<RadzenDataList Data="@viewableGroups" AllowPaging=true PageSize="10" style="padding: 0 !important;"
+    class="nopadding-data-list">
+    <Template>
+        @{
+            string cssClass = "clickable-div";
+
+            if (selectedOptions.Contains(context))
+            {
+                cssClass = "clickable-div div-selected";
+            }
+            <div @onclick="(() => AddToSelection(context))"
+                class=@cssClass>
+                <RadzenStack Orientation="Orientation.Vertical" Gap="0" class="rz-p-5">
+                    <RadzenText TextStyle="TextStyle.DisplayH6">@context.Name</RadzenText>
+                    <RadzenText TextStyle="TextStyle.Overline">@context.CanonicalName</RadzenText>
+                </RadzenStack>
+            </div>
+        }
+
+    </Template>
+
+</RadzenDataList>
+<RadzenButton Click="(() => SubmitSelection())" Icon="Save" />
+@code {
+    [Parameter]
+    public HashSet<ADObjectMap> groups { get; set; }
+
+    public HashSet<ADObjectMap> viewableGroups { get; set; }
+
+    [Parameter]
+    public HashSet<ADObjectMap> selectedOptions {get; set;} = new HashSet<ADObjectMap>();
+    string searchValue;
+
+    private void AddToSelection(ADObjectMap selectedOption)
+    {
+        if (selectedOptions.Contains(selectedOption))
+        {
+            selectedOptions.Remove(selectedOption);
+        }
+        else
+        {
+            selectedOptions.Add(selectedOption);
+        }
+    }
+
+    private void SubmitSelection()
+    {
+        dialogService.Close(selectedOptions);
+    }
+    private void Search(ChangeEventArgs e)
+    {
+        searchValue = e.Value as string;
+        if (searchValue == null || searchValue == "")
+        {
+            viewableGroups = groups.OrderBy(x => x.Name).ToHashSet<ADObjectMap>();
+        }
+        
+        viewableGroups = groups.Where(x => x.Name.Contains(searchValue, StringComparison.OrdinalIgnoreCase)).OrderBy(x => x.Name).ToHashSet<ADObjectMap>();
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        viewableGroups = groups.OrderBy(x => x.Name).ToHashSet<ADObjectMap>();
+    }
+}

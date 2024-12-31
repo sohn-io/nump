@@ -54,6 +54,10 @@ public partial class UserService
         NumpInstructionSet? task = _context.Tasks.Where(x => x.Guid == taskId).Include(p => p.IngestChild).ThenInclude(p => p.LocationMapChild).FirstOrDefault();
         if (task != null)
         {
+            if (loggedTask != null)
+            {
+                loggedTask = null;
+            }
             task.CancelToken = new CancellationTokenSource();
             await DoTask(task);
         }
@@ -346,6 +350,9 @@ public partial class UserService
         task.CurrentStatus = "Stopped";
         await SaveTaskLog(task, reason);
         OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task));
+        task.CurrCsvRow = 0;
+        task.MaxCsvRow = 0;
+
 
     }
     private async Task<Guid> SaveNotificationLog(NotificationData notification, string result)
@@ -423,6 +430,30 @@ public partial class UserService
         user.CommitChanges();
         return updatedValues;
     }
+
+
+    public static string ConvertDistinguishedNameToCanonical(string distinguishedName)
+    {
+        // Split the DN by commas (e.g., CN=John Doe,OU=Employees,DC=example,DC=com)
+        var parts = distinguishedName.Split(',')
+            .Select(part => part.Trim())
+            .Where(part => !string.IsNullOrEmpty(part))
+            .ToArray();
+
+        // Extract CN and DC values separately
+        var cnPart = parts.FirstOrDefault(p => p.StartsWith("CN="))?.Substring(3); // Extract CN value
+        var ouParts = parts.Where(p => p.StartsWith("OU=")).Select(p => p.Substring(3)).ToArray(); // Extract OU values
+        var dcParts = parts.Where(p => p.StartsWith("DC=")).Select(p => p.Substring(3)).ToArray(); // Extract DC values
+
+        // Combine DC parts into the domain name (e.g., "example.com")
+        var domainName = string.Join(".", dcParts);
+        // Combine the OU and CN parts to form the full canonical name
+        var canonicalName = string.Join("/", ouParts.Concat(new[] { cnPart }).Where(x => x != null));
+
+        // Return the canonical name in the format "domain.com/OU1/OU2/.../CN"
+        return $"{domainName}/{canonicalName}";
+    }
+
     public async Task<Dictionary<string, string>> GetCreds()
     {
 
@@ -668,7 +699,7 @@ public partial class UserService
         await _context.UserUpdateLogs.AddAsync(newLog);
         await _context.SaveChangesAsync();
     }
-    public async Task LogUserCreate(NumpInstructionSet task, DirectoryEntry? user, string result, string? reason, Dictionary<string, object>? csvObject)
+    public async Task LogUserCreate(NumpInstructionSet task, DirectoryEntry user, string result, string? reason, Dictionary<string, object>? csvObject)
     {
         Guid guid = await GetGuid(user.Properties["objectGuid"].Value);
 
@@ -676,10 +707,11 @@ public partial class UserService
         {
             DateTime = DateTime.Now,
             RunId = loggedTask.Guid,
-            UserName = user != null ? user.Properties["userprincipalname"].Value.ToString() : "",
+            UserName = user.Properties["userprincipalname"].Value.ToString(),
             UserGuid = guid,
             Result = result,
             Reason = reason != null ? reason : "",
+            CreationDN = ConvertDistinguishedNameToCanonical(user.Properties["distinguishedName"].Value.ToString()),
             csvUserObject = csvObject != null ? JsonSerializer.Serialize(csvObject) : null
         };
         await _context.UserCreationLogs.AddAsync(newLog);
@@ -732,7 +764,7 @@ public partial class UserService
 
             UserPrincipal newUserPrincipal = CreateUserPrincipal(context, user, sam, creds["domain"], task.AccountExpirationDays);
             string acctPassword = await GeneratePassword(task, csvRecord, user);
-
+            
             newUserPrincipal.SetPassword(acctPassword);
             newUserPrincipal.ExpirePasswordNow();
 
@@ -746,6 +778,7 @@ public partial class UserService
             }
 
             DirectoryEntry newUser = (DirectoryEntry)newUserPrincipal.GetUnderlyingObject();
+            await HandleGroups(task, newUser);
             await HandleNewUser(task, updatableAttributes, user, newUser, csvRecord);
 
             return newUser;
@@ -757,6 +790,33 @@ public partial class UserService
         }
     }
 
+    private async Task HandleGroups(NumpInstructionSet task, DirectoryEntry newUser)
+    {
+        if (task.IngestChild.LocationMapChild.defaultGroupList != null)
+        {
+            List<Guid> groupGuids = task.IngestChild.LocationMapChild.defaultGroupList;
+
+            foreach (Guid guid in groupGuids)
+            {
+                Dictionary<string, string> requiredElements = new Dictionary<string, string>()
+                {
+                    {"objectClass", "group"},
+                    {"objectGuid", guid.ToString()}
+                };
+                List<DirectoryEntry> groupsToAdd = await FindUser(requiredElements);
+                if (groupsToAdd == null || groupsToAdd.Count() > 1)
+                {
+                    Console.WriteLine("not found or found too many");
+                    continue;
+                }
+                else
+                {
+                    DirectoryEntry groupToAdd = groupsToAdd[0];
+                    groupToAdd.Invoke("Add", new object[] { newUser.Path });
+                }
+            }
+        }
+    }
     private async Task SetUserDescription(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
     {
         if (task.IngestChild.accountOption.AccountDescriptionValue != null)

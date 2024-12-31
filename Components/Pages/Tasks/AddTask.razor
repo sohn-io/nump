@@ -3,159 +3,181 @@
 @inject NumpContext _Context
 @inject NavigationManager _Nav
 @inject SaveService<NumpInstructionSet> _Save
-    @inject DialogService DialogService
-    @inject TaskSchedulerService _taskScheduler
+@inject DialogService DialogService
+@inject TaskSchedulerService _taskScheduler
 @using System.Text.Json
 
 <RadzenTemplateForm Data="@newTask" Submit="@((NumpInstructionSet args) => { Submit(args); })">
-<RadzenRow>
-    <RadzenColumn SizeXS="12" SizeMD="6" SizeLG="4">
-        <RadzenPanel AllowCollapse="true" class="rz-mb-4">
-            <HeaderTemplate>
-                <RadzenText TextStyle="TextStyle.H6" class="rz-display-flex rz-align-items-center rz-mb-4">
-                    <RadzenIcon Icon="settings" class="rz-me-1" /><b>General Settings</b>
-                </RadzenText>
-            </HeaderTemplate>
-            <ChildContent>
+    <RadzenRow>
+        <RadzenColumn SizeXS="12" SizeMD="6" SizeLG="4">
+            <RadzenPanel AllowCollapse="true" class="rz-mb-4">
+                <HeaderTemplate>
+                    <RadzenText TextStyle="TextStyle.H6" class="rz-display-flex rz-align-items-center rz-mb-4">
+                        <RadzenIcon Icon="settings" class="rz-me-1" /><b>General Settings</b>
+                    </RadzenText>
+                </HeaderTemplate>
+                <ChildContent>
                     <RadzenRow AlignItems="AlignItems.Center" class="rz-mb-4">
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
                             <RadzenLabel Text="Task Name" Component="TaskName" />
                             <RadzenTextBox @bind-Value="newTask.Name" AllowClear="true" Placeholder="1A Thu - Contoso"
                                 Name="TaskName" />
-                            </RadzenStack>
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
-                                <RadzenLabel Text="Task Description" />
-                                <RadzenTextBox @bind-Value=@newTask.Description />
-                            </RadzenStack>
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                                JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
-                                <RadzenLabel Text="Enabled" />
-                                <RadzenSwitch @bind-Value=@newTask.Enabled />
-                            </RadzenStack>
+                        </RadzenStack>
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                            <RadzenLabel Text="Task Description" />
+                            <RadzenTextBox @bind-Value=@newTask.Description />
+                        </RadzenStack>
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                            <RadzenLabel Text="Enabled" />
+                            <RadzenSwitch @bind-Value=@newTask.Enabled />
+                        </RadzenStack>
                     </RadzenRow>
                     <RadzenRow JustifyContent="JustifyContent.End">
-                        <RadzenColumn Size="12" SizeMD="1">            
-                            <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Light" Variant="Variant.Text" Icon="save"  />
+                        <RadzenColumn Size="12" SizeMD="1">
+                            <RadzenButton ButtonType="ButtonType.Submit" ButtonStyle="ButtonStyle.Light"
+                                Variant="Variant.Text" Icon="save" />
                         </RadzenColumn>
                     </RadzenRow>
-            </ChildContent>
-        </RadzenPanel>
-        <RadzenPanel AllowCollapse="true" class="rz-mb-4">
-            <HeaderTemplate>
-                <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-display-flex rz-align-items-center rz-mb-4">
-                    <RadzenIcon Icon="account_box" class="rz-me-1" /><b>Account Settings</b>
-                </RadzenText>
-            </HeaderTemplate>
-            <ChildContent>
-                <RadzenStack Orientation="Orientation.Vertical" JustifyContent="JustifyContent.End">
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                        JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
-                        <RadzenLabel>New User Creation <RadzenButton ButtonStyle="ButtonStyle.Info" Variant="Variant.Text" Size="ButtonSize.ExtraSmall"></RadzenButton></RadzenLabel>
-                        <RadzenSwitch @bind-Value=@newTask.AllowCreateAccount />
+                </ChildContent>
+            </RadzenPanel>
+            <RadzenPanel AllowCollapse="true" class="rz-mb-4">
+                <HeaderTemplate>
+                    <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-display-flex rz-align-items-center rz-mb-4">
+                        <RadzenIcon Icon="account_box" class="rz-me-1" /><b>Account Settings</b>
+                    </RadzenText>
+                </HeaderTemplate>
+                <ChildContent>
+                    <RadzenStack Orientation="Orientation.Vertical" JustifyContent="JustifyContent.End">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                            <RadzenLabel>New User Creation <RadzenButton ButtonStyle="ButtonStyle.Info"
+                                    Variant="Variant.Text" Size="ButtonSize.ExtraSmall"></RadzenButton>
+                            </RadzenLabel>
+                            <RadzenSwitch @bind-Value=@newTask.AllowCreateAccount />
+                        </RadzenStack>
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                            <RadzenLabel Text="Existing User Updating" />
+                            <RadzenSwitch @bind-Value=@newTask.AllowUpdateFields />
+                        </RadzenStack>
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                            <RadzenLabel Text="Account Expiration (in Days)" />
+                            <RadzenNumeric Min="0" @bind-Value=@newTask.AccountExpirationDays />
+                        </RadzenStack>
                     </RadzenStack>
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                        JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
-                        <RadzenLabel Text="Existing User Updating" />
-                        <RadzenSwitch @bind-Value=@newTask.AllowUpdateFields />
+                </ChildContent>
+            </RadzenPanel>
+            <RadzenPanel AllowCollapse="true" class="rz-mb-4">
+                <HeaderTemplate>
+                    <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-display-flex rz-align-items-center rz-mb-4">
+                        <RadzenIcon Icon="assignment" class="rz-me-1" /><b>Log Settings</b>
+                    </RadzenText>
+                </HeaderTemplate>
+                <ChildContent>
+                    <RadzenStack Orientation="Orientation.Vertical" JustifyContent="JustifyContent.End">
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                            <RadzenLabel Text="Searching of Users" />
+                            <RadzenSwitch @bind-Value=@newTask.AllowSearchLogging />
+                        </RadzenStack>
                     </RadzenStack>
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                        JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
-                        <RadzenLabel Text="Account Expiration (in Days)" />
-                        <RadzenNumeric Min="0" @bind-Value=@newTask.AccountExpirationDays />
-                    </RadzenStack>
-                </RadzenStack>
-            </ChildContent>
-        </RadzenPanel>
-        <RadzenPanel AllowCollapse="true" class="rz-mb-4">
-            <HeaderTemplate>
-                <RadzenText TextStyle="TextStyle.Subtitle1" class="rz-display-flex rz-align-items-center rz-mb-4">
-                    <RadzenIcon Icon="assignment" class="rz-me-1" /><b>Log Settings</b>
-                </RadzenText>
-            </HeaderTemplate>
-            <ChildContent>
-                <RadzenStack Orientation="Orientation.Vertical" JustifyContent="JustifyContent.End">
-                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
-                        JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
-                        <RadzenLabel Text="Searching of Users" />
-                        <RadzenSwitch @bind-Value=@newTask.AllowSearchLogging />
-                    </RadzenStack>
-                </RadzenStack>
-            </ChildContent>
-        </RadzenPanel>
-    </RadzenColumn>
-    <RadzenColumn SizeXS="12" SizeMD="6" SizeLG="6" SizeXL="4">
-        <RadzenPanel AllowCollapse="true" class="rz-mb-4">
-            <HeaderTemplate>
-                <RadzenText TextStyle="TextStyle.H6" class="rz-display-flex rz-align-items-center rz-mb-4">
-                    <RadzenIcon Icon="upload" class="rz-me-1" /><b>Data Ingestion</b>
-                </RadzenText>
-            </HeaderTemplate>
-            <ChildContent>
-                <RadzenDropDown Data="@ingestions" TextProperty="name" ValueProperty="Guid" TValue="Guid"
-                    @bind-Value=@newTask.AssocIngest />
-            </ChildContent>
-        </RadzenPanel>
-        <RadzenPanel AllowCollapse="true" class="rz-mb-4">
-            <HeaderTemplate>
-                <RadzenText TextStyle="TextStyle.H6" class="rz-display-flex rz-align-items-center rz-mb-4">
-                    <RadzenIcon Icon="notifications" class="rz-me-1" /><b>Notifications</b>
-                </RadzenText>
-            </HeaderTemplate>
-            <ChildContent>
-                <RadzenDropDown Data="@completedNotifications" TextProperty="name" ValueProperty="Guid"
-                    TValue="Guid?" @bind-Value=@newTask.CompletedNotification />
-                <RadzenDropDown Data="@createdNotifications" TextProperty="name" ValueProperty="Guid"
-                    TValue="Guid?" @bind-Value=@newTask.CreatedNotification />
-                <RadzenDropDown Data="@updatedNotifications" TextProperty="name" ValueProperty="Guid"
-                    TValue="Guid?" @bind-Value=@newTask.UpdatedNotification />
-            </ChildContent>
-        </RadzenPanel>
-        <RadzenPanel AllowCollapse="true" class="rz-mb-4">
-            <HeaderTemplate>
-                <RadzenText TextStyle="TextStyle.H6" class="rz-display-flex rz-align-items-center rz-mb-4">
-                    <RadzenIcon Icon="autorenew" class="rz-me-1" /><b>Frequency</b>
-                </RadzenText>
-            </HeaderTemplate>
-            <ChildContent>
+                </ChildContent>
+            </RadzenPanel>
+        </RadzenColumn>
+        <RadzenColumn SizeXS="12" SizeMD="6" SizeLG="6" SizeXL="4">
+            <RadzenPanel AllowCollapse="true" class="rz-mb-4">
+                <HeaderTemplate>
+                    <RadzenText TextStyle="TextStyle.H6" class="rz-display-flex rz-align-items-center rz-mb-4">
+                        <RadzenIcon Icon="upload" class="rz-me-1" /><b>Data Ingestion</b>
+                    </RadzenText>
+                </HeaderTemplate>
+                <ChildContent>
+                    <RadzenDropDown Data="@ingestions" TextProperty="name" ValueProperty="Guid" TValue="Guid"
+                        @bind-Value=@newTask.AssocIngest />
+                </ChildContent>
+            </RadzenPanel>
+            <RadzenPanel AllowCollapse="true" class="rz-mb-4">
+                <HeaderTemplate>
+                    <RadzenText TextStyle="TextStyle.H6" class="rz-display-flex rz-align-items-center rz-mb-4">
+                        <RadzenIcon Icon="notifications" class="rz-me-1" /><b>Notifications</b>
+                    </RadzenText>
+                </HeaderTemplate>
+                <ChildContent>
+                    <RadzenStack Orientation="Orientation.Horizontal">
+                        <RadzenStack Orientation="Orientation.Vertical">
+                            <RadzenLabel Text="On Task Complete" />
+                            <RadzenDropDown Data="@completedNotifications" TextProperty="name" ValueProperty="Guid"
+                                TValue="Guid?" @bind-Value=@newTask.CompletedNotification />
+                        </RadzenStack>
+                        <RadzenStack Orientation="Orientation.Vertical">
+                            <RadzenLabel Text="On User Created" />
+                            <RadzenDropDown Data="@createdNotifications" TextProperty="name" ValueProperty="Guid"
+                                TValue="Guid?" @bind-Value=@newTask.CreatedNotification />
+                        </RadzenStack>
+                        <RadzenStack Orientation="Orientation.Vertical">
+                            <RadzenLabel Text="On User Updated" />
 
-                <RadzenRadioButtonList @bind-Value=@newFrequency.type TValue="int" Orientation="Orientation.Horizontal"
-                    class="rz-mb-4">
-                    <Items>
-                        <RadzenRadioButtonListItem Text="Daily" Value="1" />
-                        <RadzenRadioButtonListItem Text="Weekly" Value="2" />
-                        <RadzenRadioButtonListItem Text="Monthly" Value="3" />
-                        <RadzenRadioButtonListItem Text="Parent Task" Value="4" />
-                    </Items>
-                </RadzenRadioButtonList>
-                @if (newFrequency.type == 1)
-                {
-                    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" AlignItems="AlignItems.Center">
-                        <RadzenLabel Text="Time" />
-                        <RadzenDatePicker @bind-Value=@newFrequency.time ShowTime="true" TimeOnly="true"
-                            DateFormat="hh:mm tt" Name="DatePickerTimeOnly" HourFormat="12" />
+                            <RadzenDropDown Data="@updatedNotifications" TextProperty="name" ValueProperty="Guid"
+                                TValue="Guid?" @bind-Value=@newTask.UpdatedNotification />
+                        </RadzenStack>
                     </RadzenStack>
-                }
-                @if (newFrequency.type == 4)
-                {
-                    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" AlignItems="AlignItems.Center">
-                        <RadzenLabel Text="Parent Task" />
-                        <RadzenDropDown Data="@instructionSet" TextProperty="name" ValueProperty="Guid"
-                            @bind-Value=newTask.ParentTask />
-                    </RadzenStack>
-                }
-            </ChildContent>
-        </RadzenPanel>
-    </RadzenColumn>
-</RadzenRow>
+                </ChildContent>
+            </RadzenPanel>
+            <RadzenPanel AllowCollapse="true" class="rz-mb-4">
+                <HeaderTemplate>
+                    <RadzenText TextStyle="TextStyle.H6" class="rz-display-flex rz-align-items-center rz-mb-4">
+                        <RadzenIcon Icon="autorenew" class="rz-me-1" /><b>Frequency</b>
+                    </RadzenText>
+                </HeaderTemplate>
+                <ChildContent>
+
+                    <RadzenRadioButtonList @bind-Value=@newFrequency.type TValue="int"
+                        Orientation="Orientation.Horizontal" class="rz-mb-4">
+                        <Items>
+                            <RadzenRadioButtonListItem Text="Daily" Value="1" />
+                            <RadzenRadioButtonListItem Text="Weekly" Value="2" />
+                            <RadzenRadioButtonListItem Text="Monthly" Value="3" />
+                            <RadzenRadioButtonListItem Text="Parent Task" Value="4" />
+                        </Items>
+                    </RadzenRadioButtonList>
+                    @if (newFrequency.type == 1)
+                    {
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" AlignItems="AlignItems.Center">
+                            <RadzenLabel Text="Time" />
+                            <RadzenDatePicker @bind-Value=@newFrequency.time ShowTime="true" TimeOnly="true"
+                                DateFormat="hh:mm tt" Name="DatePickerTimeOnly" HourFormat="12" />
+                        </RadzenStack>
+                    }
+                    @if (newFrequency.type == 4)
+                    {
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" AlignItems="AlignItems.Center">
+                            <RadzenLabel Text="Parent Task" />
+                            <RadzenDropDown Data="@instructionSet" TextProperty="Name" ValueProperty="Guid"
+                                @bind-Value=newTask.ParentTask />
+                        </RadzenStack>
+                    }
+                </ChildContent>
+            </RadzenPanel>
+        </RadzenColumn>
+    </RadzenRow>
 </RadzenTemplateForm>
 
 @code {
     [Parameter]
     public Guid? existingGuid { get; set; }
 
-    private List<NumpInstructionSet> instructionSet = new List<NumpInstructionSet>();
+    private List<NumpInstructionSet> instructionSet = new List<NumpInstructionSet>
+{
+new NumpInstructionSet()
+{
+Guid = Guid.Empty,
+Name = "NONE"
+}
+};
 
     bool addNewIngest = false;
     bool addNewNotification = false;
@@ -170,35 +192,35 @@
         };
     List<IngestData> ingestions = new List<IngestData>();
     List<NotificationData> completedNotifications = new List<NotificationData>()
-        {
-            new NotificationData()
-            {
-                Guid = Guid.Empty,
-                name = "None",
-                type = "999",
-                sendRecipientsList = new List<string>()
-            }
-        };
+{
+new NotificationData()
+{
+Guid = Guid.Empty,
+name = "None",
+type = "999",
+sendRecipientsList = new List<string>()
+}
+};
     List<NotificationData> createdNotifications = new List<NotificationData>()
-        {
-            new NotificationData()
-            {
-                Guid = Guid.Empty,
-                name = "None",
-                type = "999",
-                sendRecipientsList = new List<string>()
-            }
-        };
+{
+new NotificationData()
+{
+Guid = Guid.Empty,
+name = "None",
+type = "999",
+sendRecipientsList = new List<string>()
+}
+};
     List<NotificationData> updatedNotifications = new List<NotificationData>()
-        {
-            new NotificationData()
-            {
-                Guid = Guid.Empty,
-                name = "None",
-                type = "999",
-                sendRecipientsList = new List<string>()
-            }
-        };
+{
+new NotificationData()
+{
+Guid = Guid.Empty,
+name = "None",
+type = "999",
+sendRecipientsList = new List<string>()
+}
+};
 
 
 
@@ -214,7 +236,7 @@
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        instructionSet = await _Context.Tasks.ToListAsync();
+        instructionSet.AddRange(await _Context.Tasks.Where(x => x.Guid != existingGuid).ToListAsync());
         ingestions = await _Context.IngestData.ToListAsync();
         var validNotifications = await _Context.Notifications.ToListAsync();
         completedNotifications.AddRange(validNotifications.Where(x => x.NotificationType == 1).ToList());
@@ -237,10 +259,23 @@
     public async Task Submit(NumpInstructionSet newTask)
     {
         newTask._frequency = newFrequency;
-    
+        if (newTask.ParentTask == Guid.Empty)
         {
             newTask.ParentTask = null;
         }
+        else
+        {
+            if (_taskScheduler._timers.Any(x => x.TaskGuid == newTask.Guid))
+            {
+                var timerToRemove = _taskScheduler._timers.FirstOrDefault(x => x.TaskGuid == newTask.Guid);
+                if (timerToRemove != null)
+                {
+                    _taskScheduler._timers.Remove(timerToRemove);
+                }
+            }
+        }
+
+
         if (newTask.CompletedNotification == Guid.Empty)
         {
             newTask.CompletedNotification = null;

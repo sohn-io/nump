@@ -58,6 +58,7 @@ public class Location
 {
     public string sourceColumnValue { get; set; }
     public string adOUGuid { get; set; }
+    public List<Guid>? assocGroups {get; set;}
 }
 public class LocationMap : IHasGuid
 {
@@ -66,7 +67,7 @@ public class LocationMap : IHasGuid
     public string name { get; set; }
     public string? description { get; set; }
     public string defaultLocation { get; set; }
-
+    public string? defaultGroups { get; set; }
     public string locations { get; set; }
 
     [NotMapped]
@@ -74,6 +75,12 @@ public class LocationMap : IHasGuid
     {
         get => JsonSerializer.Deserialize<List<Location>>(locations);
         set => locations = JsonSerializer.Serialize(value);
+    }
+    [NotMapped]
+    public List<Guid>? defaultGroupList
+    {
+        get => string.IsNullOrEmpty(defaultGroups) ? null : JsonSerializer.Deserialize<List<Guid>>(defaultGroups);
+        set => defaultGroups = value != null ? JsonSerializer.Serialize(value) : null;
     }
 }
 public class Setting

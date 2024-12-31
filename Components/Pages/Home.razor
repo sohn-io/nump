@@ -8,30 +8,71 @@
 
 <PageTitle>Home</PageTitle>
 
-    <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="0" class="rz-mb-4">
-        <RadzenText TextStyle="TextStyle.DisplayH4" Text="Tasks - Today" />
-        <RadzenText TextStyle="TextStyle.Overline">@DateTime.Now.ToString("MMMM dd, yyyy")</RadzenText>
-    </RadzenStack>
-<RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="20">
+<RadzenRow>
+    <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="4" SizeXL="3">
+        <RadzenCard>
+            <RadzenStack Orientation="Orientation.Vertical" Gap="0" class="rz-mb-4">
+                <RadzenText TextStyle="TextStyle.DisplayH3" Text="Tasks - Today" />
+                <RadzenText TextStyle="TextStyle.Overline">@DateTime.Now.ToString("MMMM dd, yyyy")</RadzenText>
+            </RadzenStack>
+            <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="20" class="w-100">
+                <RadzenColumn Size="3">
 
-        <RadzenCard class="rz-p-5">
-            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Tasks Ran" />
-            <RadzenText TextAlign="TextAlign.Center">@tasksRanToday</RadzenText>
+                    <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Tasks Ran" />
+                    <RadzenText TextAlign="TextAlign.Center">@tasksRanToday</RadzenText>
+
+                </RadzenColumn>
+                <RadzenColumn Size="3">
+
+                    <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Successful" />
+                    <RadzenText TextAlign="TextAlign.Center">@tasksSuccessfulToday</RadzenText>
+
+                </RadzenColumn>
+                <RadzenColumn Size="3">
+
+                    <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Failed" />
+                    <RadzenText TextAlign="TextAlign.Center">@tasksFailedToday</RadzenText>
+
+                </RadzenColumn>
+                <RadzenColumn Size="3">
+
+                    <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Tasks Running" />
+                    <RadzenText TextAlign="TextAlign.Center">@currTasksRunning</RadzenText>
+
+                </RadzenColumn>
+            </RadzenRow>
         </RadzenCard>
-        <RadzenCard class="rz-p-5">
-            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Successful" />
-            <RadzenText TextAlign="TextAlign.Center">@tasksSuccessfulToday</RadzenText>
+    </RadzenColumn>
+    <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="4" SizeXL="3">
+        <RadzenCard>
+            <RadzenText TextStyle="TextStyle.DisplayH3" Text="Scheduled Tasks" class="rz-mb-4" />
+            <RadzenStack Orientation="Orientation.Vertical" Gap="10">
+                @{
+                    foreach (var task in tasks)
+                    {
+                        <RadzenRow JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                            <strong>@task.Name</strong>
+                            <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" style="width: 225px;">
+                                <RadzenIcon Icon="timer" />
+                                @if (task.ParentTask != null)
+                                {
+                                    NumpInstructionSet pt = tasks.Where(x => x.Guid == task.ParentTask).FirstOrDefault();
+                                    <RadzenText>After @pt.Name</RadzenText>
+                                }
+                                else
+                                {
+                                    @task.NextRunTime
+                                }
+                            </RadzenRow>
+                        </RadzenRow>
+
+
+                    }
+                }
+            </RadzenStack>
         </RadzenCard>
-        <RadzenCard class="rz-p-5">
-            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Failed" />
-            <RadzenText TextAlign="TextAlign.Center">@tasksFailedToday</RadzenText>
-        </RadzenCard>
-        <RadzenCard class="rz-p-5">
-            <RadzenText TextAlign="TextAlign.Center" TextStyle="TextStyle.DisplayH5" Text="Tasks Running" />
-            <RadzenText TextAlign="TextAlign.Center">@currTasksRunning</RadzenText>
-        </RadzenCard>
+    </RadzenColumn>
 </RadzenRow>
-
 
 
 
@@ -44,14 +85,19 @@
     private int tasksFailedToday = 0;
     private int currTasksRunning = 0;
 
+    List<NumpInstructionSet> tasks = new List<NumpInstructionSet>();
+
     protected override async Task OnInitializedAsync()
     {
-
-        List<TaskLog> taskLogsToday = await _Context.TaskLogs.Where(x => x.RunTime <= DateTime.Now).ToListAsync();
+        List<TaskLog> taskLogsToday = await _Context.TaskLogs
+        .Where(x => x.RunTime.Value.Date == DateTime.Today)
+        .ToListAsync();
         tasksRanToday = taskLogsToday.Count();
         tasksSuccessfulToday = taskLogsToday.Where(x => x.Result == "SUCCESSFUL").Count();
         tasksFailedToday = taskLogsToday.Where(x => x.Result != "SUCCESSFUL" && x.CurrentStatus != "Running").Count();
-        currTasksRunning =  _Context.TaskLogs.Where(x => x.CurrentStatus == "Running").Count();
+        currTasksRunning = _Context.TaskLogs.Where(x => x.CurrentStatus == "Running").Count();
 
+
+        tasks = await _Context.Tasks.ToListAsync();
     }
 }

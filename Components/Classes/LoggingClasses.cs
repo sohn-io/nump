@@ -24,6 +24,7 @@ public class UserUpdateLog
     public string? NewValue {get; set;}
     public string? CsvUserObject {get; set;}
 
+
     [NotMapped]
     public Dictionary<string, object>? _csvObject
     {
@@ -50,6 +51,7 @@ public class UserCreationLog
     public string? Reason {get; set;}    
     [Required]
     public string? csvUserObject {get; set;}
+    public string? CreationDN {get; set;}
     [NotMapped]
     public Dictionary<string, object>? _csvObject
     {

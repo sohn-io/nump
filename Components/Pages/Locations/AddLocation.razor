@@ -1,7 +1,8 @@
 @page "/locations/add"
 @page "/locations/edit/{existingGuid:guid}"
-@using CsvHelper;
-@using System.Text;
+@using CsvHelper
+@using CsvHelper.Configuration
+@using System.Text
 @inject NumpContext _Context
 @inject NavigationManager _Nav
 @inject NotificationService NotificationService
@@ -16,17 +17,12 @@
             <RadzenText TextStyle="TextStyle.Body2" Text="Select Location Column" />
             <RadzenDropDown TValue="string" Data="@columnNames" Multiple="false" @bind-Value="@selectedLocationColumnName" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
         </RadzenStack>
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-            <RadzenText TextStyle="TextStyle.Body2" Text="Select AD OU Column (OPTIONAL)" />
-            <RadzenDropDown TValue="string" Data="@columnNames" Multiple="false" @bind-Value="@selectedGuidColumnName" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
-        </RadzenStack>
             <RadzenButton Text="Load Locations" Click="@(() => LoadLocations())" />
     </RadzenCard>
 
 }
 </RadzenRow>
 <RadzenTemplateForm TItem="LocationMap" Data=@newLocation Submit="@(() => Save())">
-    <RadzenFieldset Text="New Location Mapping">
         <RadzenStack Orientation="Orientation.Horizontal" Gap="20" AlignItems="AlignItems.Center">
             <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
                 <RadzenLabel Text="Location Title" Component="FirstName" />
@@ -36,7 +32,7 @@
             </RadzenStack>
             <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
             <RadzenLabel Text="Default OU" Component="FirstName" />
-            <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border); min-width: 200px;" Variant="Variant.Flat">
+            <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border); min-width: 400px;" Variant="Variant.Flat">
                 @{
                     string? ouName = string.IsNullOrEmpty(newLocation.defaultLocation) || !Guid.TryParse(newLocation.defaultLocation, out Guid parsedGuid)
                         ? null
@@ -49,7 +45,43 @@
                     }
                     
                 }
-                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenDialog(locationMap: newLocation))"></RadzenButton>
+                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(locationMap: newLocation))"></RadzenButton>
+            </RadzenCard>
+
+            </RadzenStack>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
+            <RadzenLabel Text="Default Groups" Component="DefaultLoc" />
+            <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border); min-width: 400px;" Variant="Variant.Flat">
+                @{
+                    if (newLocation.defaultGroups != null)
+                    {
+                        foreach (Guid defaultGroups in newLocation.defaultGroupList.Take(3))
+                        {
+                            string? groupName = string.IsNullOrEmpty(newLocation.defaultGroups)
+                                ? null
+                                : groups.Where(x => x.OUGuid == defaultGroups)
+                                     .Select(x => x.Name)
+                                     .FirstOrDefault();
+                            if (groupName != null)
+                            {
+                                string cssClass = "rz-mr-2 rz-p-1";
+                                <RadzenCard style="width: auto; background-color: var(--rz-body-background-color);" class="@cssClass">
+                                    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
+                                        @groupName
+                                    </RadzenRow>
+                                </RadzenCard>
+                            }
+                        }
+                        if (newLocation.defaultGroupList.Count() > 3)
+                        {
+                            int count = newLocation.defaultGroupList.Count() - 3;
+                            <RadzenText>+@count</RadzenText>
+                        }
+                    }
+                    
+                }
+                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenGroups())"></RadzenButton>
+
             </RadzenCard>
 
             </RadzenStack>
@@ -79,7 +111,7 @@
                                 }
                                 
                             }
-                            <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenDialog(location))"></RadzenButton>
+                            <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(location))"></RadzenButton>
                         </RadzenCard>
                     </RadzenColumn>
                     @if (newLocationList.Last() == location)
@@ -88,15 +120,13 @@
                             Size="ButtonSize.ExtraSmall" />
 
                     }
-                    @if (newLocationList.Count() > 1)
-                    {
+
                         <RadzenButton Click="@(() => Delete(location))" Icon="delete" Variant="Variant.Text"
                             Size="ButtonSize.ExtraSmall" />
-                    }
+                    
                 </RadzenRow>
             </Template>
         </RadzenDataList>
-    </RadzenFieldset>
 
 </RadzenTemplateForm>
 @code {
@@ -129,12 +159,8 @@
 
     private List<dynamic> currentCsv = new List<dynamic>();
     
-    List<OUMap> ous = new List<OUMap>();
-
-    public Dictionary<string, string> lookups = new Dictionary<string, string>()
-        {
-            {"objectClass", "organizationalUnit"}
-        };
+    HashSet<ADObjectMap> ous = new HashSet<ADObjectMap>();
+    HashSet<ADObjectMap> groups = new HashSet<ADObjectMap>();
 
     private async Task LoadLocations()
     {
@@ -178,7 +204,7 @@
             // Parse the CSV string using CSVHelper
             using (var reader = new StringReader(fileContent))
             using (var csv = new CsvHelper.CsvReader(reader, new
-            CsvHelper.Configuration.CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)))
+            CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)))
             {
                 // Read the CSV records
                 currentCsv = csv.GetRecords<dynamic>().ToList();
@@ -197,7 +223,7 @@
         }
     }
 
-    private async Task OpenDialog(Location? location = null, LocationMap? locationMap = null)
+    private async Task OpenOUDialog(Location? location = null, LocationMap? locationMap = null)
     {
             var result = await DialogService.OpenAsync<OUPopup>($"Select OU",
                new Dictionary<string, object>() { { "OUs", ous } },
@@ -218,6 +244,38 @@
             if (result != null && locationMap != null)
             {
                 locationMap.defaultLocation = result.OUGuid.ToString();
+            }
+
+    }
+    private async Task OpenGroups()
+    {
+            Dictionary<string, object> parameters = new Dictionary<string, object>
+                {
+                    {"groups", groups}
+                };
+            
+            if (newLocation.defaultGroups != null)
+            {
+                HashSet<ADObjectMap> selectedOptions = groups
+                    .Where(x => newLocation.defaultGroupList.Contains(x.OUGuid))
+                    .ToHashSet<ADObjectMap>();
+                parameters.Add("selectedOptions", selectedOptions);
+            }
+            HashSet<ADObjectMap> result = await DialogService.OpenAsync<GroupsPopup>($"Select Groups",
+               parameters,
+               new DialogOptions() 
+               {
+                   Resizable = true, 
+                   Draggable = true,
+                   Width = "700px", 
+                   Height = "100%",
+                   CloseDialogOnEsc = true,
+                   CloseDialogOnOverlayClick = true,
+                   ContentCssClass = "noscrollbar"
+                });
+            if (result != null)
+            {
+                    newLocation.defaultGroupList = result.Select(x => x.OUGuid).ToList();
             }
 
     }
@@ -269,31 +327,48 @@
             {
                 newLocation = existingLocationMap;
                 newLocationList = existingLocationMap.locationList;
+                
             }
             else
             {
                 _Nav.NavigateTo("/locations/add");
             }
         }
-
-
-        string ldap = await _user.BuildLdapString(lookups);
-        List<DirectoryEntry> ouDirEntry = await _user.FindUser(ldapFilter: ldap);
-        foreach (DirectoryEntry ou in ouDirEntry)
+        Dictionary<string, string> lookups = new Dictionary<string, string>()
         {
-            byte[] objectGuidByteArray = (byte[])ou.Properties["objectGuid"].Value;
+            {"objectClass", "organizationalUnit"}
+        };
+        ous = await GetADOBjects(lookups);
+        
+        lookups = new Dictionary<string, string>()
+        {
+            {"objectClass", "group"}
+        };
+        groups = await GetADOBjects(lookups);
+
+    }
+
+    public async Task<HashSet<ADObjectMap>> GetADOBjects(Dictionary<string, string> lookups)
+    {
+        string groupLdap = await _user.BuildLdapString(lookups);
+        List<DirectoryEntry> groupObjects = await _user.FindUser(ldapFilter: groupLdap);
+        HashSet<ADObjectMap> returnItems = new HashSet<ADObjectMap>();
+        foreach (DirectoryEntry group in groupObjects)
+        {
+            byte[] objectGuidByteArray = (byte[])group.Properties["objectGuid"].Value;
             Guid objectGuid = new Guid(objectGuidByteArray);
             // Get the Distinguished Name (DN) of the object
-            string distinguishedName = ou.Properties["distinguishedName"].Value.ToString();
+            string distinguishedName = group.Properties["distinguishedName"].Value.ToString();
             // Convert DN to Canonical Name format
             string canonicalName = ConvertDistinguishedNameToCanonical(distinguishedName);
-            ous.Add(new OUMap()
+            returnItems.Add(new ADObjectMap()
             {
                 OUGuid = objectGuid,
                 CanonicalName = canonicalName,
-                Name = ou.Name.Replace("OU=", "")
+                Name = group.Name.Replace("OU=", "").Replace("CN=", "")
             });
         }
+        return returnItems;
     }
     public static string ConvertDistinguishedNameToCanonical(string distinguishedName)
     {

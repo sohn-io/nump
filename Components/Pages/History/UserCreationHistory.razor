@@ -3,25 +3,24 @@
 @inject NumpContext _context
 @inject DialogService DialogService
 <RadzenRow>
-    <RadzenColumn Size="4">
-        <RadzenText TextStyle="TextStyle.DisplayH4" Text="User Modification History" />
-        <RadzenDataGrid Data="@userLogs" TItem="UserCreationLog">
-            <Columns>
-                <RadzenDataGridColumn TItem="UserCreationLog" Property="DateTime" Title="Date/Time" />
-                <RadzenDataGridColumn TItem="UserCreationLog" Property="UserName" Title="User" />
-                <RadzenDataGridColumn TItem="UserCreationLog" Property="Result" Title="Creation Status" />
-                <RadzenDataGridColumn TItem="UserCreationLog" Property="Reason" Title="Reason" />
-                <RadzenDataGridColumn TItem="UserCreationLog">
-                    <Template Context="userLog">
-                        @if (userLog.csvUserObject != null)
-                        {
-                            <RadzenButton Text="View CSV Data" Variant="Variant.Text" Click="@(() => ViewCSVData(userLog))" />
-                        }
-                    </Template>
-                </RadzenDataGridColumn>
-            </Columns>
-        </RadzenDataGrid>
-    </RadzenColumn>
+    <RadzenText TextStyle="TextStyle.DisplayH4" Text="User Creation History" />
+    <RadzenDataGrid Data="@userLogs" TItem="UserCreationLog" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterMode="FilterMode.CheckBoxList" AllowColumnReorder="true" AllowColumnResize="true">
+        <Columns>
+            <RadzenDataGridColumn TItem="UserCreationLog" Property="DateTime" Title="Date/Time" />
+            <RadzenDataGridColumn TItem="UserCreationLog" Property="UserName" Title="User"  />
+            <RadzenDataGridColumn TItem="UserCreationLog" Property="Result" Title="Creation Status" />
+            <RadzenDataGridColumn TItem="UserCreationLog" Property="Reason" Title="Fail Reason" />
+            <RadzenDataGridColumn TItem="UserCreationLog" Property="CreationDN" Title="Creation DN" />
+            <RadzenDataGridColumn TItem="UserCreationLog" Title="CSV" Filterable="false">
+                <Template Context="userLog">
+                    @if (userLog.csvUserObject != null)
+                    {
+                        <RadzenButton Text="View CSV Data" Variant="Variant.Text" Click="@(() => ViewCSVData(userLog))" />
+                    }
+                </Template>
+            </RadzenDataGridColumn>
+        </Columns>
+    </RadzenDataGrid>
 </RadzenRow>
 @code {
     [Parameter] public Guid? TaskRunId { get; set; }
@@ -33,7 +32,8 @@
         {
             _Nav.NavigateTo("/");
         }
-        userLogs = await _context.UserCreationLogs.Where(x => x.RunId == TaskRunId).OrderByDescending(x => x.DateTime).ToListAsync();
+        userLogs = await _context.UserCreationLogs.Where(x => x.RunId == TaskRunId).OrderByDescending(x =>
+        x.DateTime).ToListAsync();
     }
     void ViewCSVData(UserCreationLog userLog)
     {
@@ -41,7 +41,7 @@
         {
             return;
         }
-        DialogService.Open<CSVDataDialog>("CSV Data", new Dictionary<string, object>() { { "CSVData", userLog._csvObject } }, 
-            new DialogOptions() { Width = "800px", CloseDialogOnEsc = true, CloseDialogOnOverlayClick = true, });
+        DialogService.Open<CSVDataDialog>("CSV Data", new Dictionary<string, object>() { { "CSVData", userLog._csvObject } },
+        new DialogOptions() { Width = "800px", CloseDialogOnEsc = true, CloseDialogOnOverlayClick = true, });
     }
 }

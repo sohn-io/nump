@@ -91,3 +91,28 @@ h1:focus {
   .z-2 {
     z-index: 2;
   }
+  .clickable-div {
+    cursor: pointer;
+    padding: 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.clickable-div:hover {
+    border: var(--rz-input-hover-border) !important;
+    /* Border color on hover */
+}
+
+.clickable-div:active {
+    background-color: #ddd;
+    /* Darker background on click */
+    border-color: #aaa;
+    /* Darker border color on click */
+}
+.div-selected {
+    background-color: #333333;
+    border-color: #007acc;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+

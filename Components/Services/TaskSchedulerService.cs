@@ -10,7 +10,7 @@ using System.Text.Json;
 public class TaskSchedulerService
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    private List<ScheduledTaskTimer> _timers = new List<ScheduledTaskTimer>();
+    public List<ScheduledTaskTimer> _timers = new List<ScheduledTaskTimer>();
     public TaskSchedulerService(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;

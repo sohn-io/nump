@@ -23,14 +23,14 @@
 </RadzenDataList>
 @code {
     [Parameter]
-    public List<OUMap> OUs {get; set;}
+    public HashSet<ADObjectMap> OUs {get; set;}
     
-    public List<OUMap> ViewableOUs {get; set;}
-    [Parameter] public EventCallback<OUMap> OnSelectedValue { get; set; }
+    public HashSet<ADObjectMap> ViewableOUs {get; set;}
+    [Parameter] public EventCallback<ADObjectMap> OnSelectedValue { get; set; }
 
         string searchValue;
 
-    private void SubmitSelection(OUMap selectedOption)
+    private void SubmitSelection(ADObjectMap selectedOption)
     {
         dialogService.Close(selectedOption);
     }
@@ -41,29 +41,11 @@
         {
             ViewableOUs = OUs;
         }
-        ViewableOUs = OUs.Where(x => x.Name.Contains(searchValue, StringComparison.OrdinalIgnoreCase)).ToList();
+        ViewableOUs = OUs.Where(x => x.Name.Contains(searchValue, StringComparison.OrdinalIgnoreCase)).ToHashSet<ADObjectMap>();
 
     }
     protected override async Task OnInitializedAsync()
     {
-        ViewableOUs = OUs.OrderBy(x => x.Name).ToList();
+        ViewableOUs = OUs.OrderBy(x => x.Name).ToHashSet<ADObjectMap>();
     }
 }
-<style>
-    .clickable-div {
-        cursor: pointer;
-        padding: 8px;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        transition: all 0.3s ease;
-    }
-
-    .clickable-div:hover {
-        border: var(--rz-input-hover-border) !important; /* Border color on hover */
-    }
-
-    .clickable-div:active {
-        background-color: #ddd; /* Darker background on click */
-        border-color: #aaa; /* Darker border color on click */
-    }
-</style>
