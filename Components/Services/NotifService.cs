@@ -7,7 +7,10 @@ using nump.Components.Classes;
 using nump.Components.Database;
 using System.DirectoryServices;
 using System.Text.RegularExpressions;
-
+using MailKit.Net.Smtp;
+using MimeKit;
+using MimeKit.Text;
+using MailKit.Security;
 namespace nump.Components.Services;
 public partial class NotifService
 {
@@ -24,15 +27,15 @@ public partial class NotifService
         Microsoft.Identity.Client.AuthenticationResult? authResult = null;
         try
         {
-        var authBuilder = ConfidentialClientApplicationBuilder.Create(clientId)
-            .WithAuthority($"https://login.microsoftonline.com/{tenantId}/v2.0")
-            .WithClientSecret(clientSecret)
-            .Build();
-        authResult = await authBuilder.AcquireTokenForClient(new[] { "https://graph.microsoft.com/.default" })
-            .ExecuteAsync();
+            var authBuilder = ConfidentialClientApplicationBuilder.Create(clientId)
+                .WithAuthority($"https://login.microsoftonline.com/{tenantId}/v2.0")
+                .WithClientSecret(clientSecret)
+                .Build();
+            authResult = await authBuilder.AcquireTokenForClient(new[] { "https://graph.microsoft.com/.default" })
+                .ExecuteAsync();
         }
         catch (Exception ex)
-        {   
+        {
             return "FAILED";
         }
 
@@ -120,41 +123,87 @@ public partial class NotifService
             return "FAILED";
         }
     }
-    public async Task SendEmailSMTP()
+    public async Task<string> SendEmailSMTP(NotificationData notification, string body, string smtpServer, int smtpPort, string smtpUser, string smtpPassword, int secureType)
     {
-        // SMTP server details (Gmail in this example)
-        string smtpServer = "smtp.gmail.com";
-        int smtpPort = 587;  // Port for TLS/STARTTLS
-        string smtpUser = "your-email@gmail.com"; // Your Gmail address
-        string smtpPassword = "your-password";    // Your Gmail password
 
+        var message = new MimeMessage();
+        message.From.Add(new MailboxAddress(smtpUser, smtpUser));
+        message.Subject = notification.header;
         // Create the email message
-        var mailMessage = new MailMessage
+        foreach (string recipient in notification.sendRecipientsList)
         {
-            From = new MailAddress(smtpUser),
-            Subject = "Test Email from SMTP",
-            Body = "This is a test email sent using SMTP in C#.",
-            IsBodyHtml = false // Set to true if sending HTML content
+            message.To.Add(new MailboxAddress(recipient, recipient));
+        }
+        if (notification.ccRecipientsList != null)
+        {
+            foreach (string recipient in notification.ccRecipientsList)
+            {
+                message.Cc.Add(new MailboxAddress(recipient, recipient));
+            }
+        }
+        if (notification.bccRecipientsList != null)
+        {
+            foreach (string recipient in notification.bccRecipientsList)
+            {
+                message.Bcc.Add(new MailboxAddress(recipient, recipient));
+            }
+        }
+
+        message.Body = new TextPart(notification.type)
+        {
+            Text = body
         };
-        mailMessage.To.Add("recipient@example.com"); // Add recipient
+
+        // Add recipient
 
         // Set up the SMTP client
-        var smtpClient = new SmtpClient(smtpServer, smtpPort)
-        {
-            Credentials = new NetworkCredential(smtpUser, smtpPassword), // Username & password
-            EnableSsl = true,  // Enable SSL/TLS
-            DeliveryMethod = SmtpDeliveryMethod.Network
-        };
+        SecureSocketOptions secureOptions = SecureSocketOptions.Auto;
 
-        try
+            switch (secureType)
+            {
+                case 1:
+                    secureOptions = SecureSocketOptions.None;
+                    break;
+
+                case 2:
+                    secureOptions = SecureSocketOptions.SslOnConnect;
+                    break;
+
+                case 3:
+                    secureOptions = SecureSocketOptions.StartTls;
+                    break;
+
+                default:
+                    secureOptions = SecureSocketOptions.Auto;
+                    break;
+            }
+
+        using (var smtpClient = new MailKit.Net.Smtp.SmtpClient())
         {
-            // Send the email
-            smtpClient.Send(mailMessage);
-            Console.WriteLine("Email sent successfully!");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error sending email: {ex.Message}");
+            try
+            {
+                // Connect to the SMTP server (for example, Gmail)
+                await smtpClient.ConnectAsync(smtpServer, smtpPort, secureOptions);
+
+                // Authenticate with the SMTP server
+                await smtpClient.AuthenticateAsync(smtpUser, smtpPassword);
+
+                // Send the email
+                await smtpClient.SendAsync(message);
+                return "SUCCESS";
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending email: {ex.Message}");
+                return "FAILED";
+            }
+            finally
+            {
+                // Disconnect and dispose of the client
+                smtpClient.Disconnect(true);
+                smtpClient.Dispose();
+            }
         }
     }
 }

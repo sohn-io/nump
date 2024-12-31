@@ -195,7 +195,7 @@ public class NumpInstructionSet : IHasGuid
     public DateTime Created { get; set; }
     public DateTime? Modified { get; set; }
     public string Frequency { get; set; }
-    public Guid? CompletedNotification { get; set; }
+    public string? CompletedNotification { get; set; }
     public Guid? CreatedNotification { get; set; }
     public Guid? UpdatedNotification { get; set; }
     public Guid AssocIngest { get; set; }
@@ -218,6 +218,13 @@ public class NumpInstructionSet : IHasGuid
 
     [NotMapped]
     public int MaxCsvRow { get; set; }
+
+    [NotMapped]
+    public List<Guid>? CompletedNotificationList
+    {
+        get => string.IsNullOrEmpty(CompletedNotification) ? null : JsonSerializer.Deserialize<List<Guid>>(CompletedNotification);
+        set => CompletedNotification = value != null ? JsonSerializer.Serialize(value) : null;
+    }
 
     [NotMapped]
     public double CurrProgress

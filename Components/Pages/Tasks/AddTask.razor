@@ -110,8 +110,8 @@
                     <RadzenStack Orientation="Orientation.Horizontal">
                         <RadzenStack Orientation="Orientation.Vertical">
                             <RadzenLabel Text="On Task Complete" />
-                            <RadzenDropDown Data="@completedNotifications" TextProperty="name" ValueProperty="Guid"
-                                TValue="Guid?" @bind-Value=@newTask.CompletedNotification />
+                            <RadzenDropDown Data="@completedNotifications" TextProperty="name" ValueProperty="Guid" Multiple="true" Chips="true" AllowSelectAll="false"
+                                @bind-Value=@newTask.CompletedNotificationList/>
                         </RadzenStack>
                         <RadzenStack Orientation="Orientation.Vertical">
                             <RadzenLabel Text="On User Created" />
@@ -191,22 +191,13 @@ Name = "NONE"
             time = TimeOnly.ParseExact("8:00 am", "h:mm tt", CultureInfo.InvariantCulture) // Custom format
         };
     List<IngestData> ingestions = new List<IngestData>();
-    List<NotificationData> completedNotifications = new List<NotificationData>()
-{
-new NotificationData()
-{
-Guid = Guid.Empty,
-name = "None",
-type = "999",
-sendRecipientsList = new List<string>()
-}
-};
+    List<NotificationData> completedNotifications = new List<NotificationData>();
     List<NotificationData> createdNotifications = new List<NotificationData>()
 {
 new NotificationData()
 {
 Guid = Guid.Empty,
-name = "None",
+name = "NONE",
 type = "999",
 sendRecipientsList = new List<string>()
 }
@@ -216,7 +207,7 @@ sendRecipientsList = new List<string>()
 new NotificationData()
 {
 Guid = Guid.Empty,
-name = "None",
+name = "NONE",
 type = "999",
 sendRecipientsList = new List<string>()
 }
@@ -273,20 +264,6 @@ sendRecipientsList = new List<string>()
                     _taskScheduler._timers.Remove(timerToRemove);
                 }
             }
-        }
-
-
-        if (newTask.CompletedNotification == Guid.Empty)
-        {
-            newTask.CompletedNotification = null;
-        }
-        if (newTask.CreatedNotification == Guid.Empty)
-        {
-            newTask.CreatedNotification = null;
-        }
-        if (newTask.UpdatedNotification == Guid.Empty)
-        {
-            newTask.UpdatedNotification = null;
         }
         if (_Context.Tasks.Any(e => e.Guid == newTask.Guid))
         {

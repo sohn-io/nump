@@ -21,6 +21,13 @@
     <RadzenNumeric Placeholder="Port" Max="65536" @bind-Value=@smtpPort />
     <RadzenTextBox Placeholder="Username" @bind-Value=@smtpUser />
     <RadzenPassword Placeholder="Password" @bind-Value=@smtpPassword />
+    <RadzenRadioButtonList @bind-Value=@SecureType TValue="int">
+        <Items>
+            <RadzenRadioButtonListItem Text="None" Value="1" />
+            <RadzenRadioButtonListItem Text="SSL" Value="2" />
+            <RadzenRadioButtonListItem Text="TLS" Value="3" />
+        </Items>
+    </RadzenRadioButtonList>
 }
     <RadzenButton Variant="Variant.Text" Icon="Save" Click="@(() => Save())" />
 
@@ -32,6 +39,8 @@
     string? clientSecret;
     string? tenantId;
     string? sendAsEmail;
+
+    int SecureType = 1;
 
     string? smtpServer;
     int? smtpPort = 587;
@@ -65,6 +74,7 @@
                 emailData.Add("smtpUser", smtpUser);
                 string encryptedPw = await _pw.EncryptStringToBase64_Aes(smtpPassword, key);
                 emailData.Add("password", encryptedPw);
+                emailData.Add("secureType", SecureType);
         }
 
         var json = JsonSerializer.Serialize(emailData);
@@ -121,9 +131,10 @@
             if (emailType == 2)
             {
                 smtpServer = keyValuePairs["smtpServer"].ToString();
-                smtpPort = keyValuePairs["smtpPort"].ToString();
+                smtpPort = int.Parse(keyValuePairs["smtpPort"].ToString());
                 smtpUser = keyValuePairs["smtpUser"].ToString();
                 smtpPassword = (await Retrieve("Email", "password"));
+                SecureType = keyValuePairs.ContainsKey("secureType") ? int.Parse(keyValuePairs["secureType"].ToString()) : 1;
             }
         }
     }

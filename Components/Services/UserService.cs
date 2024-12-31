@@ -71,7 +71,7 @@ public partial class UserService
     public async Task DoTask(NumpInstructionSet task)
     {
         
-        List<NotificationData> notifications = await _context.Notifications.Where(x => x.Guid == task.CompletedNotification || x.Guid == task.CreatedNotification || x.Guid == task.UpdatedNotification).ToListAsync();
+        List<NotificationData> notifications = await _context.Notifications.Where(x => task.CompletedNotificationList != null ? task.CompletedNotificationList.Contains(x.Guid) : false || x.Guid == task.CreatedNotification || x.Guid == task.UpdatedNotification).ToListAsync();
 
         task.CurrentStatus = "Running";
         loggedTask = await SaveTaskLog(task, null);
@@ -226,10 +226,13 @@ public partial class UserService
             }
             loggedTask.CreatedUsers = allCreatedUsers.Count();
             loggedTask.UpdatedUsers = allUpdatedUsers.Count();
-            NotificationData? completedNotification = notifications.Where(x => x.NotificationType == 1).FirstOrDefault();
-            if (completedNotification != null)
+            List<NotificationData> completedNotification = notifications.Where(x => x.NotificationType == 1).ToList();
+            if (completedNotification.Count > 0)
             {
-                await HandleNotifications(task, loggedTask, completedNotification, allCreatedUsers, allUpdatedUsers);
+                foreach (NotificationData notification in completedNotification)
+                {
+                    await HandleNotifications(task, loggedTask, notification, allCreatedUsers, allUpdatedUsers);
+                }
             }
             foreach (var user in allCreatedUsers.Concat(allUpdatedUsers))
             {
@@ -323,6 +326,16 @@ public partial class UserService
             clientSecret = null;
             clientSecretEncrypted = null;
 
+        }
+        else if (emailType == 2)
+        {
+            string smtpServer = data["smtpServer"].ToString();
+            int smtpPort = int.Parse(data["smtpPort"].ToString());
+            string smtpUser = data["smtpUser"].ToString();
+            string encryptedPassword = data["password"].ToString();
+            string smtpPassword = await _pw.DecryptStringFromBase64_Aes(encryptedPassword, null);
+            int secureType = data.ContainsKey("secureType") ? int.Parse(data["secureType"].ToString()) : 0;
+            result = await _notify.SendEmailSMTP(notification, body, smtpServer, smtpPort, smtpUser, smtpPassword, secureType);
         }
         Guid logged = await SaveNotificationLog(notification, result);
     }

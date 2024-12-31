@@ -10,7 +10,7 @@
     </ChildContent>
 </RadzenFormField>
 
-<RadzenDataList Data="@viewableGroups" AllowPaging=true PageSize="10" style="padding: 0 !important;"
+<RadzenDataList Data="@viewableGroups" AllowPaging=@allowPaging PageSize="10" style="padding: 0 !important;" @ref="radzenDataList" AllowVirtualization="true"
     class="nopadding-data-list">
     <Template>
         @{
@@ -43,6 +43,10 @@
     public HashSet<ADObjectMap> selectedOptions {get; set;} = new HashSet<ADObjectMap>();
     string searchValue;
 
+    RadzenDataList<ADObjectMap> radzenDataList {get; set;}
+    
+    bool allowPaging = true;
+
     private void AddToSelection(ADObjectMap selectedOption)
     {
         if (selectedOptions.Contains(selectedOption))
@@ -64,10 +68,16 @@
         searchValue = e.Value as string;
         if (searchValue == null || searchValue == "")
         {
+            Console.WriteLine("hit");
+            allowPaging = true;
             viewableGroups = groups.OrderBy(x => x.Name).ToHashSet<ADObjectMap>();
         }
-        
-        viewableGroups = groups.Where(x => x.Name.Contains(searchValue, StringComparison.OrdinalIgnoreCase)).OrderBy(x => x.Name).ToHashSet<ADObjectMap>();
+        else
+        {
+            viewableGroups = groups.Where(x => x.Name.Contains(searchValue, StringComparison.OrdinalIgnoreCase)).ToHashSet<ADObjectMap>();
+            allowPaging = false;
+        }
+
     }
     protected override async Task OnInitializedAsync()
     {

@@ -83,7 +83,7 @@
                                         string completedText = "No Associated <strong>Completed</strong> Notification";
                                         if (task.CompletedNotification != null)
                                         {
-                                            completedText = "Completion Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.CompletedNotification).Select(x => x.name).FirstOrDefault() + "</strong>";
+                                            completedText = "Completion Notifications: <strong>" + _Context.Notifications.Where(x => task.CompletedNotificationList.Contains(x.Guid)).Select(x => x.name).FirstOrDefault() + "</strong>";
                                         }
                                     <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)completedText)
                                     </RadzenText>
