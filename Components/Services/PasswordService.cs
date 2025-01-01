@@ -7,26 +7,17 @@ using Microsoft.AspNetCore.Identity;
 using System;
 using CredentialManagement;
 using nump.Components.Classes;
-
+using System.Reflection;
 
 public class PasswordService
 {
-    public static List<string> wordList = new List<string>
+    public static string wordListLoc = "nump.Resources.words.txt";
+    public List<string> wordList = new List<string>();
+    public PasswordService()
     {
-        "apple", "banana", "cherry", "dog", "elephant", "fox", "grape", "hat", "island", "jungle",
-        "kite", "lemon", "mountain", "notebook", "orange", "peach", "quilt", "rabbit", "snake", "tiger",
-        "adventure", "balloon", "cake", "dolphin", "eagle", "fountain", "glove", "horizon", "infinity", "jet",
-        "kangaroo", "lighthouse", "mango", "novel", "octopus", "paradise", "quicksilver", "rocket", "sunflower", "tree",
-        "unicorn", "violet", "whale", "xylophone", "yarn", "zebra", "apricot", "bear", "cloud", "daisy",
-        "elephant", "forest", "guitar", "harbor", "illusion", "jungle", "kiwi", "lightning", "maple", "night",
-        "olive", "pebble", "queen", "rainbow", "starfish", "tornado", "underwater", "vortex", "whisper", "xenon",
-        "yellowstone", "zeppelin", "anchor", "breeze", "canyon", "desert", "echo", "flame", "gale", "horizon",
-        "iridescent", "journey", "kiwi", "landscape", "moonlight", "nebula", "oasis", "puzzle", "quake", "revolution",
-        "snowflake", "tiger", "ufo", "voyage", "whirlpool", "xeno", "yacht", "zenith", "asteroid", "bubble",
-        "cactus", "dust", "echo", "frost", "garnet", "horizon", "illusion", "jade", "kaleidoscope", "lava",
-        "mermaid", "notch", "ocean", "paradox", "quasar", "ray", "sphere", "tundra", "umbrella", "vortex",
-        "wonder", "xenial", "yellow", "zodiac"
-    };
+        wordList = ReadEmbeddedDictionary(wordListLoc);
+    }
+
     // Use a cryptographically secure random number generator
     private static readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
 
@@ -35,13 +26,17 @@ public class PasswordService
     {
         // Initialize the passphrase
         var passphrase = new StringBuilder();
-
+        int numberOfWords = passwordOptions.minLength;
+        if (passwordOptions.minLength != passwordOptions.maxLength)
+        {
+            numberOfWords = GetRandomNumber(passwordOptions.minLength, passwordOptions.maxLength + 1);
+        }
         // Determine the number of words for the passphrase
-        int numberOfWords = GetRandomNumber(passwordOptions.minLength, passwordOptions.maxLength + 1);
-
-        // List to store the words before applying any transformations
+        if (wordList.Count < 0)
+        {
+            wordList = ReadEmbeddedDictionary(wordListLoc);
+        }
         var words = new List<string>();
-
         // Generate the passphrase words (unmodified at first)
         for (int i = 0; i < numberOfWords; i++)
         {
@@ -111,7 +106,6 @@ public class PasswordService
                 }
             }
         }
-
         // Return the generated passphrase
         return passphrase.ToString();
     }
@@ -292,5 +286,27 @@ public class PasswordService
         }
 
         return plaintext;
+    }
+    static List<string> ReadEmbeddedDictionary(string dictionaryPath)
+    {
+        var words = new List<string>();
+        var assembly = Assembly.GetExecutingAssembly();
+        var resources = assembly.GetManifestResourceNames();
+        // Get the embedded resource stream
+        using (var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(dictionaryPath))
+        using (var reader = new StreamReader(stream))
+        {
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                // Add words, skipping comment lines or other unwanted data
+                if (!line.StartsWith(" "))
+                {
+                    words.Add(line.Split('/')[0]); // If affix rules are used
+                }
+            }
+        }
+
+        return words;
     }
 }

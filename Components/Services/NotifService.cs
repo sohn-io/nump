@@ -113,7 +113,6 @@ public partial class NotifService
         var response = await httpClient.PostAsync($"{graphApiEndpoint}/users/{userEmail}/sendMail", new StringContent(jsonMessage, System.Text.Encoding.UTF8, "application/json"));
         if (response.IsSuccessStatusCode)
         {
-            Console.WriteLine("Email sent successfully.");
             return "SUCCESS";
         }
         else

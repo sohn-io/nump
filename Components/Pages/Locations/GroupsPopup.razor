@@ -68,7 +68,6 @@
         searchValue = e.Value as string;
         if (searchValue == null || searchValue == "")
         {
-            Console.WriteLine("hit");
             allowPaging = true;
             viewableGroups = groups.OrderBy(x => x.Name).ToHashSet<ADObjectMap>();
         }

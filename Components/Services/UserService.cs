@@ -260,7 +260,6 @@ public partial class UserService
             {
                 {"taskName", task.Name}
             });
-            Console.WriteLine(completedFolder);
             if (!Directory.Exists(completedFolder))
             {
                 Directory.CreateDirectory(completedFolder);
@@ -297,7 +296,6 @@ public partial class UserService
                 if (fi.LastAccessTime < DateTime.Now.AddDays(-task.RetentionDays.Value))
                 {
                     fi.Delete();
-                    Console.WriteLine("Deleted: " + fi.FullName);
                 }
             }
             // Delete empty subdirectories
@@ -306,7 +304,6 @@ public partial class UserService
                 if (!Directory.EnumerateFileSystemEntries(dir).Any())
                 {
                     Directory.Delete(dir);
-                    Console.WriteLine("Deleted empty directory: " + dir);
                 }
             }
         }
@@ -652,7 +649,6 @@ public partial class UserService
         }
 
         ldapFilterBuilder.Append(")");  // Close the AND clause
-        Console.WriteLine(ldapFilterBuilder.ToString());
         return ldapFilterBuilder.ToString();
     }
     public async Task<string> ReplaceVariablesAnonymous(string sourceString, Dictionary<string, string> items)

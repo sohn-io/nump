@@ -71,7 +71,6 @@ private void RemoveExistingTimerForTask(TaskProcess task)
             var freq = JsonSerializer.Deserialize<Frequency>(task.Frequency);
             if (freq?.type == 4)
             {
-                Console.WriteLine("parent task enabled. skipping");
                 return; // Skip task if the type is 4
             }
 
@@ -91,7 +90,6 @@ private void RemoveExistingTimerForTask(TaskProcess task)
                 var scheduledTaskTimer = new ScheduledTaskTimer(timer, task.Guid);
                 _timers.Add(scheduledTaskTimer);
 
-                Console.WriteLine($"{task.Name} scheduled to run at {task.NextRunTime}");
             }
         }
     }
