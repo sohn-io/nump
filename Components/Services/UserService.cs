@@ -33,8 +33,8 @@ public partial class UserService
     }
     public class TaskUpdatedEventArgs : EventArgs
     {
-        public NumpInstructionSet task { get; }
-        public TaskUpdatedEventArgs(NumpInstructionSet Task)
+        public TaskProcess task { get; }
+        public TaskUpdatedEventArgs(TaskProcess Task)
         {
             task = Task;
         }
@@ -51,7 +51,7 @@ public partial class UserService
 
     public async Task ActuallyDoTask(Guid taskId)
     {
-        NumpInstructionSet? task = _context.Tasks.Where(x => x.Guid == taskId).Include(p => p.IngestChild).ThenInclude(p => p.LocationMapChild).FirstOrDefault();
+        TaskProcess? task = _context.Tasks.Where(x => x.Guid == taskId).Include(p => p.IngestChild).ThenInclude(p => p.LocationMapChild).FirstOrDefault();
         if (task != null)
         {
             if (loggedTask != null)
@@ -68,7 +68,7 @@ public partial class UserService
             await ActuallyDoTask(childTaskGuid.Value);
         }
     }
-    public async Task DoTask(NumpInstructionSet task)
+    public async Task DoTask(TaskProcess task)
     {
         
         List<NotificationData> notifications = await _context.Notifications.Where(x => task.CompletedNotificationList != null ? task.CompletedNotificationList.Contains(x.Guid) : false || x.Guid == task.CreatedNotification || x.Guid == task.UpdatedNotification).ToListAsync();
@@ -239,12 +239,11 @@ public partial class UserService
                 user.Dispose();
             }
         }
-        
-        await StopTask(task, "SUCCESSFUL");
+        await DoTaskSuccess(task);
 
 
     }
-    private async Task CheckCancel(NumpInstructionSet task)
+    private async Task CheckCancel(TaskProcess task)
     {
         if (task.CancelToken.Token.IsCancellationRequested)
         {
@@ -252,7 +251,69 @@ public partial class UserService
             throw new OperationCanceledException(task.CancelToken.Token);
         }
     }
-    public async Task HandleNotifications(NumpInstructionSet task, TaskLog taskLog, NotificationData notification, List<DirectoryEntry>? createdUsers = null, List<DirectoryEntry>? updatedUsers = null)
+    public async Task DoTaskSuccess(TaskProcess task)
+    {
+        string completedFolder = task.IngestChild.fileLocation;
+        if (task.CompletedFolder != null)
+        {
+            completedFolder = await ReplaceVariablesAnonymous(task.CompletedFolder, new Dictionary<string, string>()
+            {
+                {"taskName", task.Name}
+            });
+            Console.WriteLine(completedFolder);
+            if (!Directory.Exists(completedFolder))
+            {
+                Directory.CreateDirectory(completedFolder);
+            }
+            string[] files = Directory.GetFiles(task.IngestChild.fileLocation);
+            foreach (string file in files)
+            {
+                string fileName = Path.GetFileName(file);
+                string destFile = Path.Combine(completedFolder, fileName);
+                int count = 1;
+                while (File.Exists(destFile))
+                {
+                    string tempFileName = $"{Path.GetFileNameWithoutExtension(fileName)}({count}){Path.GetExtension(fileName)}";
+                    destFile = Path.Combine(completedFolder, tempFileName);
+                    count++;
+                }
+                File.Move(file, destFile);
+            }
+        }
+        if (task.RetentionDays != null)
+        {
+            string retentionFolder = task.IngestChild.fileLocation;
+            if (task.RetentionFolder != null)
+            {
+                retentionFolder = await ReplaceVariablesAnonymous(task.RetentionFolder, new Dictionary<string, string>()
+                {
+                    {"taskName", task.Name}
+                });
+            }
+            string[] files = Directory.GetFiles(retentionFolder, "*.csv", SearchOption.AllDirectories);
+            foreach (string file in files)
+            {
+                FileInfo fi = new FileInfo(file);
+                if (fi.LastAccessTime < DateTime.Now.AddDays(-task.RetentionDays.Value))
+                {
+                    fi.Delete();
+                    Console.WriteLine("Deleted: " + fi.FullName);
+                }
+            }
+            // Delete empty subdirectories
+            foreach (string dir in Directory.GetDirectories(retentionFolder, "*", SearchOption.AllDirectories))
+            {
+                if (!Directory.EnumerateFileSystemEntries(dir).Any())
+                {
+                    Directory.Delete(dir);
+                    Console.WriteLine("Deleted empty directory: " + dir);
+                }
+            }
+        }
+        await StopTask(task, "SUCCESSFUL");
+
+    }
+    public async Task HandleNotifications(TaskProcess task, TaskLog taskLog, NotificationData notification, List<DirectoryEntry>? createdUsers = null, List<DirectoryEntry>? updatedUsers = null, string? password = null)
     {
         Dictionary<string, string> itemsToReplace = new Dictionary<string, string>()
         {
@@ -261,7 +322,7 @@ public partial class UserService
                 {"logGuid", taskLog.Guid.ToString()},
         };
         DirectoryEntry? user = null;
-        string body = notification.body;
+        string body = notification.Body;
         if (notification == null)
         {
             return;
@@ -271,12 +332,17 @@ public partial class UserService
             case 1:
                 itemsToReplace.Add("createdUserCount", taskLog.CreatedUsers.ToString());
                 itemsToReplace.Add("updatedUserCount", taskLog.UpdatedUsers.ToString());
-                body = await ReplaceUserVariables(body, createdUsers, 1, notification.type);
-                body = await ReplaceUserVariables(body, updatedUsers, 2, notification.type);
+                body = await ReplaceUserVariables(body, createdUsers, 1, notification.Type);
+                body = await ReplaceUserVariables(body, updatedUsers, 2, notification.Type);
                 break;
 
             case 2:
                 user = createdUsers[0];
+                if (password != null)
+                {
+                    itemsToReplace.Add("password", password);
+
+                }
                 break;
 
             case 3:
@@ -302,7 +368,7 @@ public partial class UserService
         }
 
         body = await ReplaceVariablesAnonymous(body, itemsToReplace);
-
+        notification.Subject = await ReplaceVariablesAnonymous(notification.Subject, itemsToReplace);
 
         Setting? emailSetting = await _context.Settings.Where(x => x.SettingName == "Email").FirstOrDefaultAsync();
         if (emailSetting == null)
@@ -348,7 +414,7 @@ public partial class UserService
     {
         return requiredColumns.All(item => headers.Contains(item, StringComparer.OrdinalIgnoreCase));
     }
-    private async Task MoveOn(NumpInstructionSet task, bool nextRow)
+    private async Task MoveOn(TaskProcess task, bool nextRow)
     {
         if (nextRow)
         {
@@ -358,7 +424,7 @@ public partial class UserService
         await Task.Yield();
         OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task));
     }
-    private async Task StopTask(NumpInstructionSet task, string reason)
+    private async Task StopTask(TaskProcess task, string reason)
     {
         task.CurrentStatus = "Stopped";
         await SaveTaskLog(task, reason);
@@ -381,7 +447,7 @@ public partial class UserService
         await _context.SaveChangesAsync();
         return log.Guid;
     }
-    private async Task<TaskLog> SaveTaskLog(NumpInstructionSet task, string? result)
+    private async Task<TaskLog> SaveTaskLog(TaskProcess task, string? result)
     {
         if (loggedTask == null)
         {
@@ -409,7 +475,7 @@ public partial class UserService
         return loggedTask;
     }
 
-    public async Task<int?> UpdateUser(List<ADAttributeMap> updatableAttributes, Dictionary<string, string> newUser, DirectoryEntry user, NumpInstructionSet task, Dictionary<string, object> csvRecord, bool logUpdateUser)
+    public async Task<int?> UpdateUser(List<ADAttributeMap> updatableAttributes, Dictionary<string, string> newUser, DirectoryEntry user, TaskProcess task, Dictionary<string, object> csvRecord, bool logUpdateUser)
     {
         int updatedValues = 0;
 
@@ -488,7 +554,7 @@ public partial class UserService
             catch
             {
                 Console.WriteLine("not on a domain probs");
-                return new Dictionary<string, string>();
+                throw;
             }
 
         }
@@ -508,7 +574,15 @@ public partial class UserService
     }
     public async Task<List<DirectoryEntry>>? FindUser(Dictionary<string, string>? requiredElements = null, string? ldapFilter = null)
     {
-        Dictionary<string, string> creds = await GetCreds();
+        Dictionary<string, string> creds = new Dictionary<string, string>();
+        try
+        {
+           creds = await GetCreds();
+        }
+        catch
+        {
+            return null;
+        }
         List<DirectoryEntry> returnItem = new List<DirectoryEntry>();
         // Define the LDAP path for your Active Directory domain
         string ldapPath = $"LDAP://" + creds["domain"];
@@ -694,7 +768,7 @@ public partial class UserService
     }
     private static Random _random = new Random();
 
-    public async Task LogUserUpdate(NumpInstructionSet task, DirectoryEntry user, string attribute, string? oldValue, string newValue, Dictionary<string, object>? csvObject)
+    public async Task LogUserUpdate(TaskProcess task, DirectoryEntry user, string attribute, string? oldValue, string newValue, Dictionary<string, object>? csvObject)
     {
         Guid userGuid = await GetGuid(user.Properties["objectGuid"].Value);
 
@@ -712,7 +786,7 @@ public partial class UserService
         await _context.UserUpdateLogs.AddAsync(newLog);
         await _context.SaveChangesAsync();
     }
-    public async Task LogUserCreate(NumpInstructionSet task, DirectoryEntry user, string result, string? reason, Dictionary<string, object>? csvObject)
+    public async Task LogUserCreate(TaskProcess task, DirectoryEntry user, string result, string? reason, Dictionary<string, object>? csvObject)
     {
         Guid guid = await GetGuid(user.Properties["objectGuid"].Value);
 
@@ -756,7 +830,7 @@ public partial class UserService
     }
 
     /* NEW USER STUFF */
-    public async Task<DirectoryEntry> NewUser(NumpInstructionSet task, List<ADAttributeMap> updatableAttributes, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    public async Task<DirectoryEntry> NewUser(TaskProcess task, List<ADAttributeMap> updatableAttributes, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
     {
         try
         {
@@ -777,8 +851,28 @@ public partial class UserService
 
             UserPrincipal newUserPrincipal = CreateUserPrincipal(context, user, sam, creds["domain"], task.AccountExpirationDays);
             string acctPassword = await GeneratePassword(task, csvRecord, user);
-            
-            newUserPrincipal.SetPassword(acctPassword);
+            int attempts = 0;
+            bool passwordSet = false;
+            while (attempts < 4 && !passwordSet)
+            {
+                try
+                {
+                    newUserPrincipal.SetPassword(acctPassword);
+                    passwordSet = true;
+                }
+                catch
+                {
+                    if (attempts < 3)
+                    {
+                        acctPassword = await GeneratePassword(task, csvRecord, user);
+                    }
+                    attempts++;
+                }
+            }
+            if (!passwordSet)
+            {
+                throw new Exception("Failed to set password after multiple attempts.");
+            }
             newUserPrincipal.ExpirePasswordNow();
 
             try
@@ -792,7 +886,7 @@ public partial class UserService
 
             DirectoryEntry newUser = (DirectoryEntry)newUserPrincipal.GetUnderlyingObject();
             await HandleGroups(task, newUser);
-            await HandleNewUser(task, updatableAttributes, user, newUser, csvRecord);
+            await HandleNewUser(task, updatableAttributes, user, newUser, csvRecord, password: acctPassword);
 
             return newUser;
         }
@@ -803,7 +897,7 @@ public partial class UserService
         }
     }
 
-    private async Task HandleGroups(NumpInstructionSet task, DirectoryEntry newUser)
+    private async Task HandleGroups(TaskProcess task, DirectoryEntry newUser)
     {
         if (task.IngestChild.LocationMapChild.defaultGroupList != null)
         {
@@ -830,7 +924,7 @@ public partial class UserService
             }
         }
     }
-    private async Task SetUserDescription(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task SetUserDescription(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
     {
         if (task.IngestChild.accountOption.AccountDescriptionValue != null)
         {
@@ -849,7 +943,7 @@ public partial class UserService
         }
     }
 
-    private async Task SetUserDisplayName(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task SetUserDisplayName(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
     {
         if (task.IngestChild.accountOption.DisplayNameValue != null)
         {
@@ -868,7 +962,7 @@ public partial class UserService
         }
     }
 
-    private async Task<string> GetTentativeOuPath(NumpInstructionSet task, Dictionary<string, object> csvRecord)
+    private async Task<string> GetTentativeOuPath(TaskProcess task, Dictionary<string, object> csvRecord)
     {
         string ouPath = "";
         if (task.IngestChild.LocationMapChild != null)
@@ -882,7 +976,7 @@ public partial class UserService
         return ouPath;
     }
 
-    private async Task SetUserEmail(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task SetUserEmail(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
     {
         switch (task.IngestChild.emailOption.option)
         {
@@ -897,7 +991,7 @@ public partial class UserService
         }
     }
 
-    private async Task SetUserManager(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task SetUserManager(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
     {
         switch (task.IngestChild.managerOption.option)
         {
@@ -936,7 +1030,7 @@ public partial class UserService
         };
     }
 
-    private async Task<string> GeneratePassword(NumpInstructionSet task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task<string> GeneratePassword(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
     {
         string acctPassword = "";
         switch (task.IngestChild.accountOption.PasswordCreationType)
@@ -995,7 +1089,7 @@ public partial class UserService
 
         return tentativeUPN;
     }
-    private async Task HandleNewUser(NumpInstructionSet task, List<ADAttributeMap> updatableAttributes, Dictionary<string, string> user, DirectoryEntry newUser, Dictionary<string, object> csvRecord)
+    private async Task HandleNewUser(TaskProcess task, List<ADAttributeMap> updatableAttributes, Dictionary<string, string> user, DirectoryEntry newUser, Dictionary<string, object> csvRecord, string? password = null)
     {
         try
         {
@@ -1005,7 +1099,7 @@ public partial class UserService
             if (newUserNotification != null)
             {
                 List<DirectoryEntry> users = new List<DirectoryEntry> { newUser };
-                await HandleNotifications(task, loggedTask, newUserNotification, users);
+                await HandleNotifications(task, loggedTask, newUserNotification, users, null, password);
             }
         }
         catch

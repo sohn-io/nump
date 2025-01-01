@@ -46,7 +46,7 @@
                         <div style="width: 200px;">
                             <RadzenLabel Text="Account Description" style="display:inline-block;" />
                         </div>
-                        <RadzenDropDown Data="@accountNameOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@accountOptions.AccountDescriptionType" Name="AssocAccName" />
+                        <RadzenDropDown Data="@accountNameOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@accountOptions.AccountDescriptionType" Name="AssocAccDesc" />
                         <RadzenTextBox @bind-Value="@accountOptions.AccountDescriptionValue" Name="AssocAccDesc" />
                     </RadzenRow>
 
@@ -54,7 +54,7 @@
                         <div style="width: 200px;">
                             <RadzenLabel Text="Display Name" style="display:inline-block;" />
                         </div>
-                        <RadzenDropDown Data="@accountNameOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@accountOptions.DisplayNameType" Name="AssocAccName" />
+                        <RadzenDropDown Data="@accountNameOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@accountOptions.DisplayNameType" Name="AssocDisplayName" />
                         <RadzenTextBox @bind-Value="@accountOptions.DisplayNameValue" Name="AssocAccDesc" />
                     </RadzenRow>
 
@@ -128,7 +128,7 @@
                     </RadzenStack>
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="10">
                         <RadzenLabel Text="Location Map" />
-                        <RadzenDropDown Data="@existingLocationMaps" TextProperty="Name" ValueProperty="Guid" TValue="Guid"
+                        <RadzenDropDown Data="@existingLocationMaps" TextProperty="Name" ValueProperty="Guid" TValue="Guid?"
                         @bind-Value="@newIngest.locationMap" Placeholder="Select Location Map" Name="AssocLocMap" />
                     </RadzenStack>
                 </RadzenStack>

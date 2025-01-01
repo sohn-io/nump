@@ -18,18 +18,20 @@ public partial class NumpContext : DbContext
     protected override void OnModelCreating(ModelBuilder builder)
     {
         this.OnModelBuilding(builder);
-        builder.Entity<NumpInstructionSet>()
+        builder.Entity<TaskProcess>()
             .HasOne(c => c.IngestChild)
-            .WithOne()
-            .HasForeignKey<NumpInstructionSet>(c => c.AssocIngest);
+            .WithMany()
+            .HasForeignKey(c => c.AssocIngest)
+            .IsRequired(true);
 
         builder.Entity<IngestData>()
             .HasOne(ic => ic.LocationMapChild)
             .WithOne()
-            .HasForeignKey<IngestData>(ic => ic.locationMap);
+            .HasForeignKey<IngestData>(ic => ic.locationMap)
+            .IsRequired(false);
     }
 
-    public DbSet<NumpInstructionSet> Tasks { get; set; }
+    public DbSet<TaskProcess> Tasks { get; set; }
     public DbSet<NotificationData> Notifications { get; set; }
     public DbSet<IngestData> IngestData { get; set; }
     public DbSet<LocationMap> LocationMaps { get; set; }

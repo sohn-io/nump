@@ -48,7 +48,7 @@ public class TaskSchedulerService
         }
     }
 
-private void RemoveExistingTimerForTask(NumpInstructionSet task)
+private void RemoveExistingTimerForTask(TaskProcess task)
 {
     // Find the existing ScheduledTaskTimer that matches the given task
     var existingTimer = _timers.FirstOrDefault(st => st.TaskGuid == task.Guid);
@@ -59,7 +59,7 @@ private void RemoveExistingTimerForTask(NumpInstructionSet task)
     }
 }
 
-    public async Task AddTimerForTask(NumpInstructionSet task)
+    public async Task AddTimerForTask(TaskProcess task)
     {
             RemoveExistingTimerForTask(task);
         // Create a scope for resolving scoped services like DbContext
@@ -71,6 +71,7 @@ private void RemoveExistingTimerForTask(NumpInstructionSet task)
             var freq = JsonSerializer.Deserialize<Frequency>(task.Frequency);
             if (freq?.type == 4)
             {
+                Console.WriteLine("parent task enabled. skipping");
                 return; // Skip task if the type is 4
             }
 
@@ -83,8 +84,8 @@ private void RemoveExistingTimerForTask(NumpInstructionSet task)
                 var timer = new Timer(
                     async _ => await RunScheduledTaskAsync(task.Guid),
                     null,
-                    delayTime,
-                    Timeout.InfiniteTimeSpan
+                    (int)delayTime.Value.TotalMilliseconds,
+                    Timeout.Infinite
                 );
 
                 var scheduledTaskTimer = new ScheduledTaskTimer(timer, task.Guid);

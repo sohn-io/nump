@@ -50,23 +50,25 @@
                 @{
                     foreach (var task in tasks)
                     {
-                        <RadzenRow JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
-                            <strong>@task.Name</strong>
-                            <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" style="width: 225px;">
-                                <RadzenIcon Icon="timer" />
-                                @if (task.ParentTask != null)
-                                {
-                                    NumpInstructionSet pt = tasks.Where(x => x.Guid == task.ParentTask).FirstOrDefault();
-                                    <RadzenText>After @pt.Name</RadzenText>
-                                }
-                                else
-                                {
-                                    @task.NextRunTime
-                                }
+                        if (task.NextRunTime != null)
+                        {
+                            <RadzenRow JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center">
+                                <strong>@task.Name</strong>
+                                <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween"
+                                    style="width: 225px;">
+                                    <RadzenIcon Icon="timer" />
+                                    @if (task.ParentTask != null)
+                                    {
+                                        TaskProcess pt = tasks.Where(x => x.Guid == task.ParentTask).FirstOrDefault();
+                                        <RadzenText>After @pt.Name</RadzenText>
+                                    }
+                                    else
+                                    {
+                                        @task.NextRunTime
+                                    }
+                                </RadzenRow>
                             </RadzenRow>
-                        </RadzenRow>
-
-
+                        }
                     }
                 }
             </RadzenStack>
@@ -85,7 +87,7 @@
     private int tasksFailedToday = 0;
     private int currTasksRunning = 0;
 
-    List<NumpInstructionSet> tasks = new List<NumpInstructionSet>();
+    List<TaskProcess> tasks = new List<TaskProcess>();
 
     protected override async Task OnInitializedAsync()
     {

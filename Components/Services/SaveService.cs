@@ -1,4 +1,5 @@
 
+using Microsoft.EntityFrameworkCore;
 using nump.Components.Classes;
 using nump.Components.Database;
 
@@ -13,16 +14,34 @@ public partial class SaveService<T> where T : class, IHasGuid
     }
     public async Task HandleSave(T item)
     {
-        // Check if the item exists by its guid and either update or add it
-        if (_context.Set<T>().Any(e => e.Guid == item.Guid))
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            _context.Update(item);
-        }
-        else
-        {
-            await _context.AddAsync(item);
-        }
 
-        await _context.SaveChangesAsync();
+            // Ensure the item is tracked properly and does not conflict
+            if (item.Guid == Guid.Empty)
+            {
+                item.Guid = Guid.NewGuid();
+            }
+
+            var existingItem = _context.Set<T>().FirstOrDefault(e => e.Guid == item.Guid);
+
+            if (existingItem != null)
+            {
+                _context.Entry(existingItem).State = EntityState.Detached;
+                _context.Update(item);
+            }
+            else
+            {
+                _context.Add<T>(item);
+            }
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync(); // Commit transaction
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync(); // Rollback if an error occurs
+            throw;
+        }
     }
 }

@@ -338,19 +338,27 @@
         {
             {"objectClass", "organizationalUnit"}
         };
-        ous = await GetADOBjects(lookups);
-        
-        lookups = new Dictionary<string, string>()
+        try
         {
-            {"objectClass", "group"}
-        };
-        groups = await GetADOBjects(lookups);
+            ous = await GetADOBjects(lookups);
+
+            lookups = new Dictionary<string, string>()
+            {
+                {"objectClass", "group"}
+            };
+            groups = await GetADOBjects(lookups);
+        }
+        catch
+        {
+            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = "Error Loading AD Objects", Duration = 4000 });
+        }
 
     }
 
     public async Task<HashSet<ADObjectMap>> GetADOBjects(Dictionary<string, string> lookups)
     {
         string groupLdap = await _user.BuildLdapString(lookups);
+        
         List<DirectoryEntry> groupObjects = await _user.FindUser(ldapFilter: groupLdap);
         HashSet<ADObjectMap> returnItems = new HashSet<ADObjectMap>();
         foreach (DirectoryEntry group in groupObjects)

@@ -48,24 +48,24 @@ public partial class NotifService
         {
             message = new
             {
-                subject = notification.header,
+                subject = notification.Subject,
                 body = new
                 {
-                    contentType = notification.type,
+                    contentType = notification.Type,
                     content = body
                 },
                 toRecipients = new List<dynamic>()
                 {
 
                 },
-                ccRecipients = (notification.ccRecipients.Count() > 0) ? new List<dynamic>() : null,
-                bccRecipients = (notification.bccRecipients.Count() > 0) ? new List<dynamic>() : null,
+                ccRecipients = (notification.CcRecipients.Count() > 0) ? new List<dynamic>() : null,
+                bccRecipients = (notification.BccRecipients.Count() > 0) ? new List<dynamic>() : null,
 
             }
         };
-        if (notification.sendRecipientsList != null)
+        if (notification.SendRecipientsList != null)
         {
-            foreach (string recipient in notification.sendRecipientsList)
+            foreach (string recipient in notification.SendRecipientsList)
             {
                 emailMessage.message.toRecipients.Add(
                     new
@@ -78,9 +78,9 @@ public partial class NotifService
                 );
             };
         }
-        if (notification.ccRecipientsList != null)
+        if (notification.CcRecipientsList != null)
         {
-            foreach (string recipient in notification.ccRecipientsList)
+            foreach (string recipient in notification.CcRecipientsList)
             {
                 emailMessage.message.ccRecipients.Add(
                     new
@@ -93,9 +93,9 @@ public partial class NotifService
                 );
             };
         }
-        if (notification.bccRecipientsList != null)
+        if (notification.BccRecipientsList != null)
         {
-            foreach (string recipient in notification.bccRecipientsList)
+            foreach (string recipient in notification.BccRecipientsList)
             {
                 emailMessage.message.bccRecipients.Add(
                     new
@@ -128,28 +128,28 @@ public partial class NotifService
 
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(smtpUser, smtpUser));
-        message.Subject = notification.header;
+        message.Subject = notification.Subject;
         // Create the email message
-        foreach (string recipient in notification.sendRecipientsList)
+        foreach (string recipient in notification.SendRecipientsList)
         {
             message.To.Add(new MailboxAddress(recipient, recipient));
         }
-        if (notification.ccRecipientsList != null)
+        if (notification.CcRecipientsList != null)
         {
-            foreach (string recipient in notification.ccRecipientsList)
+            foreach (string recipient in notification.CcRecipientsList)
             {
                 message.Cc.Add(new MailboxAddress(recipient, recipient));
             }
         }
-        if (notification.bccRecipientsList != null)
+        if (notification.BccRecipientsList != null)
         {
-            foreach (string recipient in notification.bccRecipientsList)
+            foreach (string recipient in notification.BccRecipientsList)
             {
                 message.Bcc.Add(new MailboxAddress(recipient, recipient));
             }
         }
 
-        message.Body = new TextPart(notification.type)
+        message.Body = new TextPart(notification.Type)
         {
             Text = body
         };

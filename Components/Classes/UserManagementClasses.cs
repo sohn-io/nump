@@ -8,7 +8,7 @@ namespace nump.Components.Classes;
 
 public interface IHasGuid
 {
-    Guid Guid { get; }
+    public Guid Guid { get; set;}
 }
 public class RequiredElement
 {
@@ -25,32 +25,32 @@ public class NotificationData : IHasGuid
 {
     [Key]
     public Guid Guid { get; set; }
-    public string name { get; set; }
-    public string type { get; set; }
-    public string sendRecipients { get; set; }
-    public string? ccRecipients { get; set; }
-    public string? bccRecipients { get; set; }
-    public string? header { get; set; }
-    public string? body { get; set; }
+    public string Name { get; set; }
+    public string Type { get; set; }
+    public string SendRecipients { get; set; }
+    public string? CcRecipients { get; set; }
+    public string? BccRecipients { get; set; }
+    public string Subject { get; set; }
+    public string? Body { get; set; }
     public int NotificationType { get; set; }
-    public DateTime? runTime { get; set; }
+    public DateTime? RunTime { get; set; }
     [NotMapped]
-    public List<string> sendRecipientsList
+    public List<string> SendRecipientsList
     {
-        get => JsonSerializer.Deserialize<List<string>>(sendRecipients);
-        set => sendRecipients = JsonSerializer.Serialize(value);
+        get => JsonSerializer.Deserialize<List<string>>(SendRecipients);
+        set => SendRecipients = JsonSerializer.Serialize(value);
     }
     [NotMapped]
-    public List<string>? ccRecipientsList
+    public List<string>? CcRecipientsList
     {
-        get => JsonSerializer.Deserialize<List<string>>(ccRecipients);
-        set => ccRecipients = JsonSerializer.Serialize(value);
+        get => JsonSerializer.Deserialize<List<string>>(CcRecipients);
+        set => CcRecipients = JsonSerializer.Serialize(value);
     }
     [NotMapped]
-    public List<string>? bccRecipientsList
+    public List<string>? BccRecipientsList
     {
-        get => JsonSerializer.Deserialize<List<string>>(bccRecipients);
-        set => bccRecipients = JsonSerializer.Serialize(value);
+        get => JsonSerializer.Deserialize<List<string>>(BccRecipients);
+        set => BccRecipients = JsonSerializer.Serialize(value);
     }
 }
 
@@ -139,8 +139,8 @@ public class IngestData : IHasGuid
     public string _accountOption { get; set; }
     public string _emailOption { get; set; }
     public string _managerOption { get; set; }
-    public Guid locationMap { get; set; }
-    public LocationMap LocationMapChild {get; set;}
+    public Guid? locationMap { get; set; }
+    public LocationMap? LocationMapChild {get; set;}
 
     public string _attributeMap { get; set; }
     [NotMapped]
@@ -186,7 +186,7 @@ public class Frequency
     public TimeOnly time { get; set; }
     public DateOnly? date { get; set; }
 }
-public class NumpInstructionSet : IHasGuid
+public class TaskProcess : IHasGuid
 {
     [Key]
     public Guid Guid { get; set; }
@@ -199,7 +199,7 @@ public class NumpInstructionSet : IHasGuid
     public Guid? CreatedNotification { get; set; }
     public Guid? UpdatedNotification { get; set; }
     public Guid AssocIngest { get; set; }
-    public IngestData IngestChild { get; set; }
+    public IngestData? IngestChild { get; set; }
 
     public bool AllowUpdateFields { get; set; }
     public bool AllowCreateAccount { get; set; }
@@ -207,7 +207,10 @@ public class NumpInstructionSet : IHasGuid
     public int AccountExpirationDays { get; set; }
     public Guid? ParentTask { get; set; }
     public string? Description { get; set; }
-    private DateTime nextRunTime { get; set; }
+    private DateTime? nextRunTime { get; set; }
+    public string? CompletedFolder {get; set;}
+    public string? RetentionFolder {get; set;}
+    public int? RetentionDays {get; set;}
     [NotMapped]
     public CancellationTokenSource? CancelToken { get; set; }
 
@@ -269,7 +272,7 @@ public class NumpInstructionSet : IHasGuid
         NextRunTime = calculatedNextRunTime;
     }
     [NotMapped]
-    public DateTime NextRunTime
+    public DateTime? NextRunTime
     {
         get
         {
@@ -283,9 +286,8 @@ public class NumpInstructionSet : IHasGuid
             return nextRunTime;
 
         }
-        private set
+        set
         {
-            // Set the internal variable _nextRunTime
             nextRunTime = value;
         }
     }

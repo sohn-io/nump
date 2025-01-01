@@ -8,16 +8,16 @@
 <RadzenTemplateForm data="@newNotification" Submit="@(() => Save())" TItem="NotificationData">
     <RadzenDropDown Data="@NotificationTypes" TextProperty="Key" ValueProperty="Value"
         @bind-Value=@newNotification.NotificationType />
-    <RadzenTextBox Placeholder="Name" @bind-Value=@newNotification.name />
+    <RadzenTextBox Placeholder="Name" @bind-Value=@newNotification.Name />
     <RadzenStack Orientation="Orientation.Vertical" Gap="10">
         <RadzenTextBox Placeholder="To" @bind-Value=@sendRecipients />
         <RadzenTextBox Placeholder="CC" @bind-Value=@ccRecipients />
         <RadzenTextBox Placeholder="BCC" @bind-Value=@bccRecipients />
     </RadzenStack>
 
-    <RadzenTextBox Placeholder="Subject" @bind-Value=@newNotification.header />
+    <RadzenTextBox Placeholder="Subject" @bind-Value=@newNotification.Subject />
     <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
-        <RadzenRadioButtonList @bind-Value=@newNotification.type TValue="string">
+        <RadzenRadioButtonList @bind-Value=@newNotification.Type TValue="string">
             <Items>
                 <RadzenRadioButtonListItem Text="Plain Text" Value="@("Text")" />
                 <RadzenRadioButtonListItem Text="HTML" Value="@("HTML")" />
@@ -27,13 +27,13 @@
             Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Primary" />
     </RadzenStack>
 
-    @if (newNotification.type == "HTML")
+    @if (newNotification.Type == "HTML")
     {
-        <RadzenHtmlEditor @bind-Value=@newNotification.body style="min-height: 300px;" />
+        <RadzenHtmlEditor @bind-Value=@newNotification.Body style="min-height: 300px;" />
     }
-    @if (newNotification.type == "Text")
+    @if (newNotification.Type == "Text")
     {
-        <RadzenTextArea @bind-Value=@newNotification.body style="min-height: 300px;" />
+        <RadzenTextArea @bind-Value=@newNotification.Body style="min-height: 300px;" />
     }
     <RadzenButton ButtonType="ButtonType.Submit" Icon="Save" />
 </RadzenTemplateForm>
@@ -46,7 +46,7 @@
 
     NotificationData newNotification = new NotificationData()
         {
-            type = "HTML"
+            Type = "HTML"
         };
     Dictionary<string, int> NotificationTypes = new Dictionary<string, int>()
 {
@@ -61,22 +61,22 @@
 
     private async Task Save()
     {
-        newNotification.sendRecipientsList = sendRecipients.Split(';').ToList();
+        newNotification.SendRecipientsList = sendRecipients.Split(';').ToList();
         if (ccRecipients == "")
         {
-            newNotification.ccRecipientsList = null;
+            newNotification.CcRecipientsList = null;
         }
         else
         {
-            newNotification.ccRecipientsList = ccRecipients.Split(';').ToList();
+            newNotification.CcRecipientsList = ccRecipients.Split(';').ToList();
         }
         if (bccRecipients == "")
         {
-            newNotification.bccRecipientsList = null;
+            newNotification.BccRecipientsList = null;
         }
         else
         {
-            newNotification.bccRecipientsList = bccRecipients.Split(';').ToList();
+            newNotification.BccRecipientsList = bccRecipients.Split(';').ToList();
         }
 
         await _Save.HandleSave(newNotification);
@@ -101,12 +101,12 @@
             if (existingNotification != null)
             {
                 newNotification = existingNotification;
-                sendRecipients = existingNotification.sendRecipientsList != null ? String.Join(";",
-                existingNotification.sendRecipientsList) : String.Empty;
-                ccRecipients = existingNotification.ccRecipientsList != null ? String.Join(";", existingNotification.ccRecipientsList) :
+                sendRecipients = existingNotification.SendRecipientsList != null ? String.Join(";",
+                existingNotification.SendRecipientsList) : String.Empty;
+                ccRecipients = existingNotification.CcRecipientsList != null ? String.Join(";", existingNotification.CcRecipientsList) :
                 String.Empty;
-                bccRecipients = existingNotification.bccRecipientsList != null ? String.Join(";",
-                existingNotification.bccRecipientsList) : String.Empty;
+                bccRecipients = existingNotification.BccRecipientsList != null ? String.Join(";",
+                existingNotification.BccRecipientsList) : String.Empty;
             }
 
         }

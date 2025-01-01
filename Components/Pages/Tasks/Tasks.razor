@@ -5,7 +5,7 @@
 
 
     <RadzenRow Gap="15">
-    @foreach (NumpInstructionSet task in currentTasks)
+    @foreach (TaskProcess task in currentTasks)
     {
         string cardClass = "rz-shadow-4";
         if (task.Enabled == false)
@@ -83,7 +83,7 @@
                                         string completedText = "No Associated <strong>Completed</strong> Notification";
                                         if (task.CompletedNotification != null)
                                         {
-                                            completedText = "Completion Notifications: <strong>" + _Context.Notifications.Where(x => task.CompletedNotificationList.Contains(x.Guid)).Select(x => x.name).FirstOrDefault() + "</strong>";
+                                            completedText = "Completion Notifications: <strong>" + _Context.Notifications.Where(x => task.CompletedNotificationList.Contains(x.Guid)).Select(x => x.Name).FirstOrDefault() + "</strong>";
                                         }
                                     <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)completedText)
                                     </RadzenText>
@@ -94,7 +94,7 @@
                                         string createdText = "No Associated <strong>Created</strong> Notification";
                                         if (task.CreatedNotification != null)
                                         {
-                                            createdText = "User Created Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.CreatedNotification).Select(x => x.name).FirstOrDefault() + "</strong>";
+                                            createdText = "User Created Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.CreatedNotification).Select(x => x.Name).FirstOrDefault() + "</strong>";
                                         }
                                     <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)createdText)
                                     </RadzenText>
@@ -105,7 +105,7 @@
                                         string updatedText = "No Associated <strong>Updated</strong> Notification";
                                         if (task.UpdatedNotification != null)
                                         {
-                                            updatedText = "User Updated Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.UpdatedNotification).Select(x => x.name).FirstOrDefault() + "</strong>";
+                                            updatedText = "User Updated Notification: <strong>" + _Context.Notifications.Where(x => x.Guid == task.UpdatedNotification).Select(x => x.Name).FirstOrDefault() + "</strong>";
                                         }
                                     <RadzenText TextStyle="TextStyle.Body2">@((MarkupString)updatedText)
                                     </RadzenText>
@@ -184,10 +184,10 @@
 
 @code {
 
-    RadzenDataGrid<NumpInstructionSet> taskDg;
+    RadzenDataGrid<TaskProcess> taskDg;
 
 
-    public List<NumpInstructionSet> currentTasks = new List<NumpInstructionSet>();
+    public List<TaskProcess> currentTasks = new List<TaskProcess>();
 
 
 
@@ -196,7 +196,7 @@
         await _user.ActuallyDoTask(task);
 
     }
-    private async Task StopTask(NumpInstructionSet task)
+    private async Task StopTask(TaskProcess task)
     {
         await task.CancelToken.CancelAsync();
     }
@@ -205,16 +205,16 @@
         _Nav.NavigateTo($"/tasks/add/");
     }
 
-    private async Task EditTask(NumpInstructionSet task)
+    private async Task EditTask(TaskProcess task)
     {
         _Nav.NavigateTo($"/tasks/edit/{task.Guid}");
     }
-    private async Task DeleteTask(NumpInstructionSet task)
+    private async Task DeleteTask(TaskProcess task)
     {
         if (currentTasks.Contains(task))
         {
 
-            _Context.Remove<NumpInstructionSet>(task);
+            _Context.Remove<TaskProcess>(task);
             _Context.SaveChanges();
             currentTasks.Remove(task);
 

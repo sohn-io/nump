@@ -9,27 +9,27 @@
                 style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative;"
                 class="rz-shadow-4">
                 <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="0" class="rz-mb-4">
-                    <RadzenText Text="@notification.name" TextStyle="TextStyle.H3" />
-                    <!--<RadzenText Text="@notification.description" TextStyle="TextStyle.Body1" /> -->
+                    <RadzenText Text="@notification.Name" TextStyle="TextStyle.H3" />
+                    <!--<RadzenText Text="@notification.Description" TextStyle="TextStyle.Body1" /> -->
                 </RadzenStack>
 
                         <ul>
                             <li>
-                                <RadzenText TextStyle="TextStyle.Body2">Subject: <strong>@notification.header</strong></RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body2">Subject: <strong>@notification.Subject</strong></RadzenText>
                             </li>
                             <li>
-                                <RadzenText TextStyle="TextStyle.Body2">Send To <strong>@notification.sendRecipientsList.Count()</strong> Recipient(s)</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body2">Send To <strong>@notification.SendRecipientsList.Count()</strong> Recipient(s)</RadzenText>
                             </li>
-                            @if (notification.ccRecipientsList != null)
+                            @if (notification.CcRecipientsList != null)
                             {
                             <li>
-                                <RadzenText TextStyle="TextStyle.Body2">CC <strong>@notification.ccRecipientsList.Count()</strong> Recipient(s)</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body2">CC <strong>@notification.CcRecipientsList.Count()</strong> Recipient(s)</RadzenText>
                             </li>          
                             }
-                            @if (notification.bccRecipientsList != null)
+                            @if (notification.BccRecipientsList != null)
                             {
                             <li>
-                                <RadzenText TextStyle="TextStyle.Body2">BCC <strong>@notification.bccRecipientsList.Count()</strong> Recipient(s)</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Body2">BCC <strong>@notification.BccRecipientsList.Count()</strong> Recipient(s)</RadzenText>
                             </li>
                             }
 
