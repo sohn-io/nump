@@ -69,11 +69,16 @@ private void RemoveExistingTimerForTask(TaskProcess task)
 
             // You can directly use the task's NextRunTime to schedule it.
             var freq = JsonSerializer.Deserialize<Frequency>(task.Frequency);
-            if (freq?.type == 4)
+            if (freq?.type == 4 || task.Enabled == false)
             {
                 return; // Skip task if the type is 4
             }
+                task.UpdateNextRunTime();
+                dbContext.Update(task);
+                await dbContext.SaveChangesAsync();
+            
 
+            
             // Calculate the delay time for the task
             var delayTime = task.NextRunTime - DateTime.Now;
 
@@ -89,7 +94,7 @@ private void RemoveExistingTimerForTask(TaskProcess task)
 
                 var scheduledTaskTimer = new ScheduledTaskTimer(timer, task.Guid);
                 _timers.Add(scheduledTaskTimer);
-
+                Console.WriteLine($"Scheduled task {task.Guid} for {task.NextRunTime}");
             }
         }
     }

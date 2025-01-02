@@ -198,13 +198,13 @@
     public Guid? existingGuid { get; set; }
 
     private List<TaskProcess> instructionSet = new List<TaskProcess>
-    {
-        new TaskProcess()
-        {
-            Guid = Guid.Empty,
-            Name = "NONE"
-        }
-    };
+{
+new TaskProcess()
+{
+Guid = Guid.Empty,
+Name = "NONE"
+}
+};
 
     bool addNewIngest = false;
     bool addNewNotification = false;
@@ -220,25 +220,25 @@
     List<IngestData> ingestions = new List<IngestData>();
     List<NotificationData> completedNotifications = new List<NotificationData>();
     List<NotificationData> createdNotifications = new List<NotificationData>()
-    {
-        new NotificationData()
-        {
-            Guid = Guid.Empty,
-            Name = "NONE",
-            Type = "999",
-            SendRecipientsList = new List<string>()
-        }
+{
+new NotificationData()
+{
+Guid = Guid.Empty,
+Name = "NONE",
+Type = "999",
+SendRecipientsList = new List<string>()
+}
 };
     List<NotificationData> updatedNotifications = new List<NotificationData>()
-    {
-        new NotificationData()
-        {
-            Guid = Guid.Empty,
-            Name = "NONE",
-            Type = "999",
-            SendRecipientsList = new List<string>()
-        }
-    };
+{
+new NotificationData()
+{
+Guid = Guid.Empty,
+Name = "NONE",
+Type = "999",
+SendRecipientsList = new List<string>()
+}
+};
 
 
 
@@ -281,17 +281,17 @@
         {
             newTask.ParentTask = null;
         }
-        else
+        if ((newTask._frequency.type == 4 || newTask.Enabled == false) && _taskScheduler._timers.Any(x => x.TaskGuid ==
+        newTask.Guid))
         {
-            if (_taskScheduler._timers.Any(x => x.TaskGuid == newTask.Guid))
+            Console.WriteLine("Removing Timer");
+            var timerToRemove = _taskScheduler._timers.FirstOrDefault(x => x.TaskGuid == newTask.Guid);
+            if (timerToRemove != null)
             {
-                var timerToRemove = _taskScheduler._timers.FirstOrDefault(x => x.TaskGuid == newTask.Guid);
-                if (timerToRemove != null)
-                {
-                    _taskScheduler._timers.Remove(timerToRemove);
-                }
-                newTask.NextRunTime = null;
+                _taskScheduler._timers.Remove(timerToRemove);
             }
+            newTask.NextRunTime = null;
+
         }
         if (newTask.CompletedNotificationList == null)
         {

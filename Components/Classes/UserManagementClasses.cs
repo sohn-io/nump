@@ -6,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace nump.Components.Classes;
 
+
+
 public interface IHasGuid
 {
     public Guid Guid { get; set;}
@@ -256,7 +258,7 @@ public class TaskProcess : IHasGuid
             UpdateNextRunTime();
         }
     }
-    private void UpdateNextRunTime()
+    public void UpdateNextRunTime()
     {
         // Calculate the next run time based on the frequency time
         DateTime currentDateTime = DateTime.Now;
@@ -271,7 +273,6 @@ public class TaskProcess : IHasGuid
         // Set the updated NextRunTime
         NextRunTime = calculatedNextRunTime;
     }
-    [NotMapped]
     public DateTime? NextRunTime
     {
         get
