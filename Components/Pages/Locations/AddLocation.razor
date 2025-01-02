@@ -1,133 +1,157 @@
 @page "/locations/add"
 @page "/locations/edit/{existingGuid:guid}"
-@using CsvHelper
-@using CsvHelper.Configuration
-@using System.Text
 @inject NumpContext _Context
 @inject NavigationManager _Nav
 @inject NotificationService NotificationService
 @inject UserService _user
 @inject DialogService DialogService
-<RadzenUpload Change="@(e => HandleFileSelected(e))" Multiple="false" />
-<RadzenRow Gap="15">
-@if (columnNamesVisible)
-{
-    <RadzenCard>
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
-            <RadzenText TextStyle="TextStyle.Body2" Text="Select Location Column" />
-            <RadzenDropDown TValue="string" Data="@columnNames" Multiple="false" @bind-Value="@selectedLocationColumnName" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
-        </RadzenStack>
-            <RadzenButton Text="Load Locations" Click="@(() => LoadLocations())" />
-    </RadzenCard>
+@using CsvHelper
+@using CsvHelper.Configuration
+@using System.Text
+@using nump.Components.Pages.Ingest
 
-}
+
+<RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Filled" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Success" Text="Save" class="sticky" Click="@(() => Save())" />
+
+<RadzenRow>
+
+    <RadzenColumn SizeXS="12" SizeMD="6" SizeLG="4">
+        <RadzenRow>
+
+            <RadzenColumn SizeXS="12" SizeMD="6">
+                <RadzenUpload Change="@(e => HandleFileSelected(e))" Multiple="false" class="rz-mb-4" @ref="RadzenUpload" ChooseText="Upload Template"  />
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenColumn>
+    <RadzenColumn SizeXS="12" SizeMD="6">
+        <RadzenButton Click="@(() => AddNewLocation())" Icon="add" Variant="Variant.Text"
+            Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Light" />
+        <RadzenButton Click="@(() => DeleteAllLocations())" Icon="delete" Variant="Variant.Text"
+            Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Danger"  />
+    </RadzenColumn>
 </RadzenRow>
+
+
 <RadzenTemplateForm TItem="LocationMap" Data=@newLocation Submit="@(() => Save())">
-        <RadzenStack Orientation="Orientation.Horizontal" Gap="20" AlignItems="AlignItems.Center">
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
-                <RadzenLabel Text="Location Title" Component="FirstName" />
-                <RadzenTextBox Name="FirstName" @bind-Value=@newLocation.name Style="display: block;" />
-                <RadzenRequiredValidator Component="FirstName" Text="Location Title is required" Popup="false"
-                    Style="position: absolute" />
-            </RadzenStack>
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
-            <RadzenLabel Text="Default OU" Component="FirstName" />
-            <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border); min-width: 400px;" Variant="Variant.Flat">
-                @{
-                    string? ouName = string.IsNullOrEmpty(newLocation.defaultLocation) || !Guid.TryParse(newLocation.defaultLocation, out Guid parsedGuid)
-                        ? null
-                        : ous.Where(x => x.OUGuid == parsedGuid)
-                             .Select(x => x.Name)
-                             .FirstOrDefault();
-                    if (ouName != null)
-                    {
-                        @ouName
-                    }
-                    
-                }
-                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(locationMap: newLocation))"></RadzenButton>
-            </RadzenCard>
+    <RadzenRow>
+        <RadzenColumn SizeXS="12" SizeMD="6" SizeLG="4">
+            <OptionsList Title="General" Icon="settings">
+                <RadzenStack Orientation="Orientation.Vertical">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenLabel Component="LocName" Text="Location Name" />
+                        <RadzenTextBox @bind-value="@newLocation.name"  Name="LabelBox" />
+                    </RadzenStack>
+                    <RadzenRow AlignItems="AlignItems.Center">
+                        <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="3">
+                            <RadzenLabel Text="Default OU" Component="DefaultOU" />
+                        </RadzenColumn>
+                        <RadzenColumn SizeXS="12" SizeMD="8" SizeLG="9">                        
+                            <RadzenCard Style="box-sizing: border-box; height: 50px; display: flex; align-items: center; border: var(--rz-input-border); width: auto;" Variant="Variant.Flat">
+                                @{
+                                    string? ouName = string.IsNullOrEmpty(newLocation.defaultLocation) || !Guid.TryParse(newLocation.defaultLocation, out Guid parsedGuid)
+                                        ? null
+                                        : ous.Where(x => x.OUGuid == parsedGuid)
+                                             .Select(x => x.Name)
+                                             .FirstOrDefault();
+                                    if (ouName != null)
+                                    {
+                                        <RadzenText >@ouName </RadzenText>
+                                    }
 
-            </RadzenStack>
-            <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
-            <RadzenLabel Text="Default Groups" Component="DefaultLoc" />
-            <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border); min-width: 400px;" Variant="Variant.Flat">
-                @{
-                    if (newLocation.defaultGroups != null)
-                    {
-                        foreach (Guid defaultGroups in newLocation.defaultGroupList.Take(3))
-                        {
-                            string? groupName = string.IsNullOrEmpty(newLocation.defaultGroups)
-                                ? null
-                                : groups.Where(x => x.OUGuid == defaultGroups)
-                                     .Select(x => x.Name)
-                                     .FirstOrDefault();
-                            if (groupName != null)
-                            {
-                                string cssClass = "rz-mr-2 rz-p-1";
-                                <RadzenCard style="width: auto; background-color: var(--rz-body-background-color);" class="@cssClass">
-                                    <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
-                                        @groupName
-                                    </RadzenRow>
-                                </RadzenCard>
-                            }
-                        }
-                        if (newLocation.defaultGroupList.Count() > 3)
-                        {
-                            int count = newLocation.defaultGroupList.Count() - 3;
-                            <RadzenText>+@count</RadzenText>
-                        }
-                    }
-                    
-                }
-                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenGroups())"></RadzenButton>
-
-            </RadzenCard>
-
-            </RadzenStack>
-            <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Text" Size="ButtonSize.ExtraSmall" />
-
-        </RadzenStack>
-        <RadzenDataList Data="@newLocationList" class="custom-data-list" @ref="datalist">
-            <Template Context="location">
-                <RadzenRow RowGap="10" AlignItems="AlignItems.Center">
-                    <RadzenLabel Text="File Value" Component="FirstName" />
-                    <RadzenColumn Size="4" SizeMD="4">
-                        <RadzenTextBox Name="FileValue" @bind-Value=location.sourceColumnValue
-                        Style="display: block; width: 100%; height: 50px;" />
-                    </RadzenColumn>
-                    <RadzenLabel Text="AD OU (GUID)" Component="FirstName" />
-                    <RadzenColumn Size="4" SizeMD="4">
-                        <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border);" Variant="Variant.Flat">
-                            @{
-                                string? ouName = string.IsNullOrEmpty(location.adOUGuid) || !Guid.TryParse(location.adOUGuid, out Guid parsedGuid)
-                                    ? null
-                                    : ous.Where(x => x.OUGuid == parsedGuid)
-                                         .Select(x => x.Name)
-                                         .FirstOrDefault();
-                                if (ouName != null)
-                                {
-                                    @ouName
                                 }
-                                
+                                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(locationMap: newLocation))"></RadzenButton>
+                            </RadzenCard>
+                        </RadzenColumn>
+                    </RadzenRow>
+                    <RadzenRow AlignItems="AlignItems.Center">
+                        <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="3">
+                            <RadzenLabel Text="Default Groups" Component="DefaultLoc" />
+                        </RadzenColumn>
+                        <RadzenColumn SizeXS="12" SizeMD="8" SizeLG="9">
+                        <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border); width: auto;" Variant="Variant.Flat">
+                            @{
+                                if (newLocation.defaultGroups != null)
+                                {
+                                    foreach (Guid defaultGroups in newLocation.defaultGroupList.Take(3))
+                                    {
+                                        string? groupName = string.IsNullOrEmpty(newLocation.defaultGroups)
+                                            ? null
+                                            : groups.Where(x => x.OUGuid == defaultGroups)
+                                                 .Select(x => x.Name)
+                                                 .FirstOrDefault();
+                                        if (groupName != null)
+                                        {
+                                            string cssClass = "rz-mr-2 rz-p-1";
+                                            <RadzenCard style="background-color: var(--rz-body-background-color);" class="@cssClass">
+                                                <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center">
+                                                    <RadzenText class="group-text" title="@groupName" >@groupName</RadzenText>
+                                                </RadzenRow>
+                                            </RadzenCard>
+                                        }
+                                    }
+
+                                }
+
                             }
-                            <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(location))"></RadzenButton>
+                            <RadzenRow style="margin-left: auto;" AlignItems="AlignItems.Center">
+                            @if (newLocation.defaultGroupList != null && newLocation.defaultGroupList.Count() > 3)
+                                    {
+                                        int count = newLocation.defaultGroupList.Count() - 3;
+                                        <RadzenText>+@count</RadzenText>
+                                    }
+                            <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="padding: 0;" Click="@(() => OpenGroups())"></RadzenButton>
+                            </RadzenRow>
                         </RadzenCard>
-                    </RadzenColumn>
-                    @if (newLocationList.Last() == location)
-                    {
-                        <RadzenButton Click="@(() => AddNewLocation())" Icon="add" Variant="Variant.Text"
-                            Size="ButtonSize.ExtraSmall" />
+                        </RadzenColumn>
+                    </RadzenRow>
+                </RadzenStack>
+            </OptionsList>
+        </RadzenColumn>
+        <RadzenColumn SizeXS="12" SizeMD="6">
 
-                    }
+            <RadzenDataList Data="@newLocationList"  @ref="datalist" class="location-data-list">
+                <Template Context="location">
+                        <RadzenRow RowGap="10">
+                            <RadzenColumn SizeXS="12" SizeSM="6" SizeLG="5">
+                                <RadzenStack Orientation="Orientation.Vertical">
+                                    <RadzenText Text="Location Value" />
+                                    <RadzenTextBox  @bind-Value=@location.sourceColumnValue style="height: 50px;"/>
+                                </RadzenStack>
+                            </RadzenColumn>
+                            <RadzenColumn SizeXS="12" SizeSM="6" SizeLG="5">
+                                <RadzenStack Orientation="Orientation.Vertical">
+                                    <RadzenText Text="AD OU (GUID)" Component="ADOU" />
+                                        <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border);" Variant="Variant.Flat">
+                                            @{
+                                                string? ouName = string.IsNullOrEmpty(location.adOUGuid) || !Guid.TryParse(location.adOUGuid, out Guid parsedGuid)
+                                                    ? null
+                                                    : ous.Where(x => x.OUGuid == parsedGuid)
+                                                         .Select(x => x.Name)
+                                                         .FirstOrDefault();
+                                                if (ouName != null)
+                                                {
+                                                    @ouName
+                                                }
 
-                        <RadzenButton Click="@(() => Delete(location))" Icon="delete" Variant="Variant.Text"
-                            Size="ButtonSize.ExtraSmall" />
-                    
-                </RadzenRow>
-            </Template>
-        </RadzenDataList>
+                                            }
+                                            <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(location))"></RadzenButton>
+                                        </RadzenCard>
+                                </RadzenStack>
+                            </RadzenColumn>
+                            <RadzenColumn SizeXS="12" SizeMD="1">
+                                <RadzenStack Orientation="Orientation.Vertical">
+                                    <RadzenText Text="Actions" style="margin-left: auto; visibility: hidden;"/>
+                                    <RadzenButton Click="@(() => Delete(location))" Icon="delete" Variant="Variant.Text"
+                                    Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Danger" class="loc-delete-button" />
+                                </RadzenStack>
 
+                            </RadzenColumn>
+                        </RadzenRow>
+                </Template>
+
+            </RadzenDataList>
+        </RadzenColumn>
+    </RadzenRow>
 </RadzenTemplateForm>
 @code {
 
@@ -135,6 +159,8 @@
     public Guid? existingGuid { get; set; }
 
     RadzenDataList<Location> datalist;
+
+    RadzenUpload RadzenUpload;
 
     private LocationMap newLocation = new LocationMap()
     {
@@ -150,7 +176,6 @@
     };
 
     private List<string> columnNames = new List<string>();
-    bool columnNamesVisible = false;
     string selectedLocationColumnName;
     string selectedGuidColumnName;
 
@@ -186,8 +211,8 @@
             });
 
         }
-
-    }
+        RadzenUpload.ClearFiles();
+         }
 
     // Handle file selection and read it as a string
     private async Task HandleFileSelected(UploadChangeEventArgs e)
@@ -218,7 +243,25 @@
                     columnNames.AddRange(csvLine.Keys.ToList());
                 }
                 columnNames = columnNames.Distinct().ToList();
-                columnNamesVisible = true;
+                
+                RadzenUpload.ClearFiles();
+
+                var result = await DialogService.OpenAsync("Select Location Column", ds =>
+                @<RadzenStack Gap="1.5rem">
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                        <RadzenStack Orientation="Orientation.Horizontal">
+                             <RadzenDropDown TValue="string" Data="@columnNames" Multiple="false" @bind-Value="@selectedLocationColumnName" FilterOperator="StringFilterOperator.Contains" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" />
+                            <RadzenButton Text="Load" Click="() => ds.Close(true)" Style="width: 80px;" />
+                            <RadzenButton Text="Cancel" Click="() => ds.Close(false)" ButtonStyle="ButtonStyle.Light" />
+                        </RadzenStack>
+                    </RadzenStack>
+                </RadzenStack>);
+
+                if (result == true)
+                {
+                    await LoadLocations();
+                }
+
             }
         }
     }
@@ -284,7 +327,26 @@
     {
         newLocationList.Add(new Location());
     }
+    private async Task DeleteAllLocations()
+    {
+        var result = await DialogService.OpenAsync("Delete All Locations?", ds =>
+        @<RadzenStack Gap="1.5rem">
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenStack Orientation="Orientation.Horizontal">
+                    <RadzenButton Text="Ok" Click="() => ds.Close(true)" Style="width: 80px;" />
+                    <RadzenButton Text="Cancel" Click="() => ds.Close(false)" ButtonStyle="ButtonStyle.Light" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenStack>, new DialogOptions() { CloseDialogOnEsc = true, CloseDialogOnOverlayClick = true });
+        if (result == true)
+        {
+            newLocationList = new List<Location>()
+            {
+                new Location()
+            }; 
+        }
 
+    }
     public async Task Delete(Location location)
     {
         newLocationList.Remove(location);

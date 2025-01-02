@@ -5,11 +5,12 @@
 @inject SaveService<IngestData> _Save
 @inject NotificationService _notify
 @inject DialogService DialogService
-@using System.Text.Json
+
 <!--<RadzenColumn SizeXS="12" SizeMD="2" SizeLG="2">
     <RadzenUpload Multiple="false"
         InputAttributes="@(new Dictionary<string,object>(){ { "aria-label", "select file" }})" />
 </RadzenColumn>-->
+<RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Filled" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Success" Text="Save" class="sticky" Click="@(() => Save())" />
 
 <RadzenTemplateForm Data="@newIngest" Submit="@(() => Save())" TItem="IngestData">
     <RadzenRow>
@@ -29,7 +30,6 @@
                         <RadzenTextBox @bind-value="@newIngest.fileLocation"  Name="LabelBox" />
                     </RadzenStack>
                     <RadzenRow JustifyContent="JustifyContent.Right">
-                        <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Text" Size="ButtonSize.Medium" />
                     </RadzenRow>
                 </RadzenRow>
             </OptionsList>
@@ -133,8 +133,8 @@
                     </RadzenStack>
                 </RadzenStack>
             </OptionsList>
-    
         </RadzenColumn>
+
         <RadzenColumn SizeXS="12" SizeMD="6">
             <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
                 <RadzenButton Click="@(() => AddNewADAttribute())" Icon="add" Variant="Variant.Text" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Base" />

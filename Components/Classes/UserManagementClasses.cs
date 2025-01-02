@@ -154,12 +154,6 @@ public class IngestData : IHasGuid
 
 
     [NotMapped]
-    public List<string>? locationList
-    {
-        get => JsonSerializer.Deserialize<List<string>>(fileLocation);
-        set => fileLocation = JsonSerializer.Serialize(value);
-    }
-    [NotMapped]
     public AccountOptions accountOption
     {
         get => JsonSerializer.Deserialize<AccountOptions>(_accountOption);
@@ -203,6 +197,7 @@ public class TaskProcess : IHasGuid
     public Guid AssocIngest { get; set; }
     public IngestData? IngestChild { get; set; }
 
+    
     public bool AllowUpdateFields { get; set; }
     public bool AllowCreateAccount { get; set; }
     public bool AllowSearchLogging { get; set; }

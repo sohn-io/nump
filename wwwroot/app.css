@@ -116,3 +116,33 @@ h1:focus {
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
+.location-data-list ul li {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.group-text {
+    max-height: 35px; 
+    overflow: hidden; 
+    white-space: nowrap; 
+    max-width: 5cqw;
+    text-overflow: ellipsis;
+}
+.sticky {
+    position: fixed;
+    bottom: 25px;
+    right: 10px;
+    overflow: auto;
+}
+.rz-form .modified, .rz-form .valid {
+    outline: 0 !important;
+}
+.loc-delete-button {
+    height: 50px; 
+    width: 25px; 
+    padding: 0;
+}
+.loc-delete-button:hover {
+    background-color: transparent !important;
+    filter: brightness(120%);
+}

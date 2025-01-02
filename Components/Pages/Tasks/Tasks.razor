@@ -2,8 +2,10 @@
 @inject NumpContext _Context
 @inject UserService _user
 @inject NavigationManager _Nav
-
-
+@inject DialogService DialogService
+@inject TaskSchedulerService _taskScheduler
+@inject IJSRuntime JSRuntime
+@using Newtonsoft.Json
     <RadzenRow Gap="15">
     @foreach (TaskProcess task in currentTasks)
     {
@@ -146,13 +148,15 @@
                             }
                         </div>
                         <div>
+                            <!--<RadzenButton ButtonStyle="ButtonStyle.Light" Icon="upgrade" Variant="Variant.Outlined"
+                                Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1 z-2"
+                                Click="@(args => ExportTask(task))" @onclick:stopPropagation="true" title="Export to JSON" /> -->
                             <RadzenButton ButtonStyle="ButtonStyle.Light" Icon="edit" Variant="Variant.Outlined"
                                 Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1 z-2"
-                                Click="@(args => EditTask(task))" @onclick:stopPropagation="true" />
-
+                                Click="@(args => EditTask(task))" @onclick:stopPropagation="true" title="Edit" />
                             <RadzenButton ButtonStyle="ButtonStyle.Danger" Icon="delete" Variant="Variant.Outlined"
                                 Shade="Shade.Lighter" Size="ButtonSize.Medium" class="rz-my-1 rz-ms-1 z-2"
-                                Click="@(args => DeleteTask(task))" @onclick:stopPropagation="true">
+                                Click="@(args => DeleteTask(task))" @onclick:stopPropagation="true" title="Delete">
                             </RadzenButton>
                         </div>
                     </RadzenStack>
@@ -209,11 +213,49 @@
     {
         _Nav.NavigateTo($"/tasks/edit/{task.Guid}");
     }
+    private async Task ExportTask(TaskProcess task)
+    {
+        string fileName = task.Name + ".json";
+
+        var jsonString = JsonConvert.SerializeObject(task, new JsonSerializerSettings
+        {
+            ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+            NullValueHandling = NullValueHandling.Ignore
+        });        byte[] byteArray = Encoding.UTF8.GetBytes(jsonString);
+        var fileStream = GetFileStream(byteArray);
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+
+        await JSRuntime.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+    }
+    private Stream GetFileStream(byte[] byteArray)
+    {
+        var fileStream = new MemoryStream(byteArray);
+
+        return fileStream;
+    }
+
     private async Task DeleteTask(TaskProcess task)
     {
-        if (currentTasks.Contains(task))
-        {
 
+        var result = await DialogService.OpenAsync("Delete " + task.Name + "?", ds =>
+        @<RadzenStack Gap="1.5rem">
+            <RadzenText style="color: #ff2a00;" TextStyle="TextStyle.Body2"><strong>THIS CANNOT BE UNDONE.</strong></RadzenText>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                <RadzenStack Orientation="Orientation.Horizontal">
+                    <RadzenButton Text="Ok" Click="() => ds.Close(true)" Style="width: 80px;" />
+                    <RadzenButton Text="Cancel" Click="() => ds.Close(false)" ButtonStyle="ButtonStyle.Light" />
+                </RadzenStack>
+            </RadzenStack>
+        </RadzenStack>);
+        if (result == true && currentTasks.Contains(task))
+        {
+            var timerToRemove = _taskScheduler._timers.FirstOrDefault(x => x.TaskGuid == task.Guid);
+            if (timerToRemove != null)
+            {
+                _taskScheduler._timers.Remove(timerToRemove);
+                Console.WriteLine("unscheduled");
+            }
+            task.NextRunTime = null;
             _Context.Remove<TaskProcess>(task);
             _Context.SaveChanges();
             currentTasks.Remove(task);
@@ -234,10 +276,23 @@
     protected override async Task OnInitializedAsync()
     {
 
-        currentTasks = await _Context.Tasks.ToListAsync();
+        currentTasks = await _Context.Tasks.Include(x => x.IngestChild).ThenInclude(p => p.LocationMapChild).ToListAsync();
         _user.OnTaskUpdated += (sender, e) => UpdateTasks(sender, e);
 
 
     }
 
 }
+<script>
+  window.downloadFileFromStream = async (fileName, contentStreamReference) => {
+    const arrayBuffer = await contentStreamReference.arrayBuffer();
+    const blob = new Blob([arrayBuffer]);
+    const url = URL.createObjectURL(blob);
+    const anchorElement = document.createElement('a');
+    anchorElement.href = url;
+    anchorElement.download = fileName ?? '';
+    anchorElement.click();
+    anchorElement.remove();
+    URL.revokeObjectURL(url);
+  }
+</script>
