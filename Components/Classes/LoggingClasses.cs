@@ -74,6 +74,7 @@ public class TaskLog : IHasGuid
     public string? Result {get; set;}
     public int? CreatedUsers {get; set;}
     public int? UpdatedUsers {get; set;}
+    public string? CsvLocation {get; set;}
 }
 public class NotificationLog : IHasGuid
 {

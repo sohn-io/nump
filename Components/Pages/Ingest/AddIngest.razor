@@ -19,15 +19,15 @@
                 <RadzenRow Gap="20" AlignItems="AlignItems.Center">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
                         <RadzenLabel Component="LabelBox" Text="Ingest Name" />
-                        <RadzenTextBox @bind-value="@newIngest.name"  Name="LabelBox" />
+                        <RadzenTextBox @bind-value="@newIngest.Name"  Name="LabelBox" />
                     </RadzenStack>
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
                         <RadzenLabel Component="LabelBox" Text="Description" />
-                        <RadzenTextBox @bind-value="@newIngest.description" Name="LabelBox" />
+                        <RadzenTextBox @bind-value="@newIngest.Description" Name="LabelBox" />
                     </RadzenStack>
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center">
                         <RadzenLabel Component="LabelBox" Text="File Location" />
-                        <RadzenTextBox @bind-value="@newIngest.fileLocation"  Name="LabelBox" />
+                        <RadzenTextBox @bind-value="@newIngest.FileLocation"  Name="LabelBox" />
                     </RadzenStack>
                     <RadzenRow JustifyContent="JustifyContent.Right">
                     </RadzenRow>
@@ -115,9 +115,9 @@
             <OptionsList Title="Manager" Icon="supervisor_account" Description="Set manager on account">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
                     JustifyContent="JustifyContent.Normal" Gap="1rem" Wrap="FlexWrap.Wrap" class="rz-mb-2">
-                    <RadzenDropDown Data="@managerOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@managerOption.option" Name="AssocAccName" />
-                    <RadzenTextBox @bind-Value=@managerOption.value />
-                    <RadzenDropDown Data="@managerAdAttributeOptions" TextProperty="Key" ValueProperty="Value" @bind-Value=@managerOption.sourceColumn  />
+                    <RadzenDropDown Data="@managerOptions" TextProperty="Key" ValueProperty="Value" @bind-Value="@managerOption.Option" Name="AssocAccName" />
+                    <RadzenTextBox @bind-Value=@managerOption.Value />
+                    <RadzenDropDown Data="@managerAdAttributeOptions" TextProperty="Key" ValueProperty="Value" @bind-Value=@managerOption.SourceColumn  />
                 </RadzenStack>
             </OptionsList>
             <OptionsList Title="Location" Icon="location_on" Description="Map Column to AD Location">
@@ -209,7 +209,7 @@
 
     [Parameter]
     public Guid? existingGuid { get; set; }
-    RadzenDataGrid<IngestData> dg;
+    RadzenDataGrid<IngestData> Dg;
 
 
     Func<ADAttributeMap, RadzenDropZone<ADAttributeMap>, bool> ItemSelector = (item, zone) => item.Test == (Status)zone.Value;

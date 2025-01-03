@@ -90,11 +90,11 @@ public partial class UserService
         }
 
         //Initialization
-        if (task.IngestChild == null || !Directory.Exists(task.IngestChild.fileLocation))
+        if (task.IngestChild == null || !Directory.Exists(task.IngestChild.FileLocation))
         {
             return;
         }
-        List<string> csvFiles = Directory.EnumerateFiles(task.IngestChild.fileLocation, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".csv")).ToList();
+        List<string> csvFiles = Directory.EnumerateFiles(task.IngestChild.FileLocation, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".csv")).ToList();
         foreach (string file in csvFiles)
         {
             await CheckCancel(task);
@@ -253,7 +253,8 @@ public partial class UserService
     }
     public async Task DoTaskSuccess(TaskProcess task)
     {
-        string completedFolder = task.IngestChild.fileLocation;
+        string completedFolder = task.IngestChild.FileLocation;
+        string destFile = "";
         if (task.CompletedFolder != null)
         {
             completedFolder = await ReplaceVariablesAnonymous(task.CompletedFolder, new Dictionary<string, string>()
@@ -264,11 +265,11 @@ public partial class UserService
             {
                 Directory.CreateDirectory(completedFolder);
             }
-            string[] files = Directory.GetFiles(task.IngestChild.fileLocation);
+            string[] files = Directory.GetFiles(task.IngestChild.FileLocation);
             foreach (string file in files)
             {
                 string fileName = Path.GetFileName(file);
-                string destFile = Path.Combine(completedFolder, fileName);
+                destFile = Path.Combine(completedFolder, fileName);
                 int count = 1;
                 while (File.Exists(destFile))
                 {
@@ -281,7 +282,7 @@ public partial class UserService
         }
         if (task.RetentionDays != null)
         {
-            string retentionFolder = task.IngestChild.fileLocation;
+            string retentionFolder = task.IngestChild.FileLocation;
             if (task.RetentionFolder != null)
             {
                 retentionFolder = await ReplaceVariablesAnonymous(task.RetentionFolder, new Dictionary<string, string>()
@@ -307,7 +308,7 @@ public partial class UserService
                 }
             }
         }
-        await StopTask(task, "SUCCESSFUL");
+        await StopTask(task, "SUCCESSFUL", destFile);
 
     }
     public async Task HandleNotifications(TaskProcess task, TaskLog taskLog, NotificationData notification, List<DirectoryEntry>? createdUsers = null, List<DirectoryEntry>? updatedUsers = null, string? password = null)
@@ -421,10 +422,10 @@ public partial class UserService
         await Task.Yield();
         OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task));
     }
-    private async Task StopTask(TaskProcess task, string reason)
+    private async Task StopTask(TaskProcess task, string reason, string? fileLocation = null)
     {
         task.CurrentStatus = "Stopped";
-        await SaveTaskLog(task, reason);
+        await SaveTaskLog(task, reason, fileLocation);
         OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task));
         task.CurrCsvRow = 0;
         task.MaxCsvRow = 0;
@@ -444,7 +445,7 @@ public partial class UserService
         await _context.SaveChangesAsync();
         return log.Guid;
     }
-    private async Task<TaskLog> SaveTaskLog(TaskProcess task, string? result)
+    private async Task<TaskLog> SaveTaskLog(TaskProcess task, string? result, string? fileLocation = null)
     {
         if (loggedTask == null)
         {
@@ -454,11 +455,13 @@ public partial class UserService
                 TaskGuid = task.Guid,
                 TaskDisplayName = task.Name,
                 CurrentStatus = task.CurrentStatus,
-                Result = result
+                Result = result,
+                CsvLocation = fileLocation
             };
         }
         loggedTask.CurrentStatus = task.CurrentStatus;
         loggedTask.Result = result;
+        loggedTask.CsvLocation = fileLocation;
 
         if (loggedTask.Guid == Guid.Empty)
         {
@@ -895,9 +898,9 @@ public partial class UserService
 
     private async Task HandleGroups(TaskProcess task, DirectoryEntry newUser)
     {
-        if (task.IngestChild.LocationMapChild.defaultGroupList != null)
+        if (task.IngestChild.LocationMapChild.DefaultGroupList != null)
         {
-            List<Guid> groupGuids = task.IngestChild.LocationMapChild.defaultGroupList;
+            List<Guid> groupGuids = task.IngestChild.LocationMapChild.DefaultGroupList;
 
             foreach (Guid guid in groupGuids)
             {
@@ -989,15 +992,15 @@ public partial class UserService
 
     private async Task SetUserManager(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
     {
-        switch (task.IngestChild.managerOption.option)
+        switch (task.IngestChild.managerOption.Option)
         {
             case "Custom":
-                user.Add("manager", await ReplaceVariablesAnonymous(task.IngestChild.managerOption.value, user));
+                user.Add("manager", await ReplaceVariablesAnonymous(task.IngestChild.managerOption.Value, user));
                 break;
             case "Column":
                 Dictionary<string, string> requiredElements = new Dictionary<string, string>
                 {
-                    {task.IngestChild.managerOption.sourceColumn, csvRecord[task.IngestChild.managerOption.value].ToString()}
+                    {task.IngestChild.managerOption.SourceColumn, csvRecord[task.IngestChild.managerOption.Value].ToString()}
                 };
                 var Managers = await FindUser(requiredElements);
                 if (Managers != null)
@@ -1046,6 +1049,7 @@ public partial class UserService
             default:
                 break;
         }
+        Console.WriteLine("PASSWORD @@@" + acctPassword);
         return acctPassword;
     }
     public async Task<string> FindValidUsername(AccountOptions accountOption, Dictionary<string, string> user)
@@ -1115,26 +1119,26 @@ public partial class UserService
         }
         catch (Exception ex)
         {
-
+            Console.WriteLine(ex.Message);
         }
         if (locationValue == "")
         {
             return String.Empty;
         }
-        string? adGuid = currentIngest.LocationMapChild.locationList.Where(x => x.sourceColumnValue == locationValue).Select(x => x.adOUGuid).FirstOrDefault();
+        string? adGuid = currentIngest.LocationMapChild?.LocationList?.Where(x => x.SourceColumnValue == locationValue).Select(x => x.AdOUGuid).FirstOrDefault();
         if (adGuid == null)
         {
-            adGuid = currentIngest.LocationMapChild.defaultLocation;
+            adGuid = currentIngest.LocationMapChild?.DefaultLocation;
         }
         Dictionary<string, string> requiredElements = new Dictionary<string, string>
                 {
-                    {"objectGuid", adGuid}
+                    {"objectGuid", adGuid ?? throw new ArgumentNullException(nameof(adGuid))}
                 };
 
-        List<DirectoryEntry> ouItem = await FindUser(requiredElements);
-        if (ouItem != null && ouItem.Count() == 1)
+        List<DirectoryEntry>? ouItem = await FindUser(requiredElements);
+        if (ouItem != null && ouItem.Count == 1 && ouItem[0] != null)
         {
-            return ouItem[0].Properties["distinguishedName"].Value.ToString();
+            return ouItem[0].Properties["distinguishedName"]?.Value?.ToString();
         }
         return null;
     }

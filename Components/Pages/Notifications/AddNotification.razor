@@ -6,6 +6,7 @@
 @inject DialogService DialogService
 
 <RadzenTemplateForm data="@newNotification" Submit="@(() => Save())" TItem="NotificationData">
+    <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Filled" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Success" Text="Save" class="sticky" />
     <RadzenDropDown Data="@NotificationTypes" TextProperty="Key" ValueProperty="Value"
         @bind-Value=@newNotification.NotificationType />
     <RadzenTextBox Placeholder="Name" @bind-Value=@newNotification.Name />
@@ -35,7 +36,6 @@
     {
         <RadzenTextArea @bind-Value=@newNotification.Body style="min-height: 300px;" />
     }
-    <RadzenButton ButtonType="ButtonType.Submit" Icon="Save" />
 </RadzenTemplateForm>
 
 

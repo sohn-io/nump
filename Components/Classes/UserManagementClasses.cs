@@ -1,8 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json;
-
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 
 namespace nump.Components.Classes;
 
@@ -11,11 +10,6 @@ namespace nump.Components.Classes;
 public interface IHasGuid
 {
     public Guid Guid { get; set;}
-}
-public class RequiredElement
-{
-    public string Attribute { get; set; }
-    public string Value { get; set; }
 }
 public class TimeData
 {
@@ -27,62 +21,69 @@ public class NotificationData : IHasGuid
 {
     [Key]
     public Guid Guid { get; set; }
-    public string Name { get; set; }
-    public string Type { get; set; }
-    public string SendRecipients { get; set; }
+    public string Name { get; set; } = String.Empty;
+    public string Type { get; set; } = "HTML";
+    public string SendRecipients { get; set; } = "[]";
     public string? CcRecipients { get; set; }
     public string? BccRecipients { get; set; }
-    public string Subject { get; set; }
+    public string Subject { get; set; } = String.Empty;
     public string? Body { get; set; }
     public int NotificationType { get; set; }
     public DateTime? RunTime { get; set; }
     [NotMapped]
     public List<string> SendRecipientsList
     {
-        get => JsonSerializer.Deserialize<List<string>>(SendRecipients);
-        set => SendRecipients = JsonSerializer.Serialize(value);
+        get
+        {
+            return JsonConvert.DeserializeObject<List<string>>(SendRecipients) ?? new List<string>();
+        }
+        set => SendRecipients = JsonConvert.SerializeObject(value);
     }
     [NotMapped]
     public List<string>? CcRecipientsList
     {
-        get => JsonSerializer.Deserialize<List<string>>(CcRecipients);
-        set => CcRecipients = JsonSerializer.Serialize(value);
+        get => JsonConvert.DeserializeObject<List<string>>(CcRecipients);
+        set => CcRecipients = JsonConvert.SerializeObject(value);
     }
     [NotMapped]
     public List<string>? BccRecipientsList
     {
-        get => JsonSerializer.Deserialize<List<string>>(BccRecipients);
-        set => BccRecipients = JsonSerializer.Serialize(value);
+        get => JsonConvert.DeserializeObject<List<string>>(BccRecipients);
+        set => BccRecipients = JsonConvert.SerializeObject(value);
     }
 }
 
 public class Location
 {
-    public string sourceColumnValue { get; set; }
-    public string adOUGuid { get; set; }
+    public string SourceColumnValue { get; set; }
+    public string AdOUGuid { get; set; }
     public List<Guid>? assocGroups {get; set;}
 }
 public class LocationMap : IHasGuid
 {
     [Key]
     public Guid Guid { get; set; }
-    public string name { get; set; }
-    public string? description { get; set; }
-    public string defaultLocation { get; set; }
-    public string? defaultGroups { get; set; }
-    public string locations { get; set; }
+    public string Name { get; set; }
+    public string? Description { get; set; }
+    public string DefaultLocation { get; set; }
+    
+    [JsonIgnore]
+    public string? DefaultGroups { get; set; }
+
+    [JsonIgnore]
+    public string Locations { get; set; }
 
     [NotMapped]
-    public List<Location>? locationList
+    public List<Location>? LocationList
     {
-        get => JsonSerializer.Deserialize<List<Location>>(locations);
-        set => locations = JsonSerializer.Serialize(value);
+        get => JsonConvert.DeserializeObject<List<Location>>(Locations);
+        set => Locations = JsonConvert.SerializeObject(value);
     }
     [NotMapped]
-    public List<Guid>? defaultGroupList
+    public List<Guid>? DefaultGroupList
     {
-        get => string.IsNullOrEmpty(defaultGroups) ? null : JsonSerializer.Deserialize<List<Guid>>(defaultGroups);
-        set => defaultGroups = value != null ? JsonSerializer.Serialize(value) : null;
+        get => string.IsNullOrEmpty(DefaultGroups) ? null : JsonConvert.DeserializeObject<List<Guid>>(DefaultGroups);
+        set => DefaultGroups = value != null ? JsonConvert.SerializeObject(value) : null;
     }
 }
 public class Setting
@@ -98,9 +99,9 @@ public class Option
 }
 public class ManagerOption
 {
-    public string option { get; set; }
-    public string value { get; set; }
-    public string? sourceColumn { get; set; }
+    public string Option { get; set; }
+    public string Value { get; set; }
+    public string? SourceColumn { get; set; }
 }
 public class AccountOptions
 {
@@ -111,12 +112,13 @@ public class AccountOptions
     public string DisplayNameType { get; set; }
     public string DisplayNameValue { get; set; }
     public string PasswordCreationType { get; set; }
+
     public string PasswordCreationValue { get; set; }
     [NotMapped]
     public PWCreationOptions? PasswordOptions
     {
-        get => JsonSerializer.Deserialize<PWCreationOptions>(PasswordCreationValue);
-        set => PasswordCreationValue = JsonSerializer.Serialize(value);
+        get => JsonConvert.DeserializeObject<PWCreationOptions>(PasswordCreationValue);
+        set => PasswordCreationValue = JsonConvert.SerializeObject(value);
     }
 }
 public class PWCreationOptions
@@ -132,44 +134,51 @@ public class IngestData : IHasGuid
 {
     [Key]
     public Guid Guid { get; set; }
-    public string name { get; set; }
+    public string Name { get; set; } = String.Empty;
 
-    public string? description { get; set; }
-    public string fileLocation { get; set; }
+    public string? Description { get; set; }
+    public string FileLocation { get; set; } = String.Empty;
     public string? adLocationColumn { get; set; }
 
-    public string _accountOption { get; set; }
-    public string _emailOption { get; set; }
-    public string _managerOption { get; set; }
+    [JsonIgnore]
+    public string AccountOption { get; set; } = "[]";
+
+    [JsonIgnore]
+    public string EmailOption { get; set; } = "[]";
+
+    [JsonIgnore]
+    public string ManagerOption { get; set; } = "[]";
     public Guid? locationMap { get; set; }
     public LocationMap? LocationMapChild {get; set;}
 
-    public string _attributeMap { get; set; }
+    [JsonIgnore]
+    public string AttributeMap { get; set; } = "[]";
+
     [NotMapped]
     public List<ADAttributeMap>? attributeMap
     {
-        get => JsonSerializer.Deserialize<List<ADAttributeMap>>(_attributeMap);
-        set => _attributeMap = JsonSerializer.Serialize(value);
+        get => JsonConvert.DeserializeObject<List<ADAttributeMap>>(AttributeMap);
+        set => AttributeMap = JsonConvert.SerializeObject(value);
     }
 
 
     [NotMapped]
     public AccountOptions accountOption
     {
-        get => JsonSerializer.Deserialize<AccountOptions>(_accountOption);
-        set => _accountOption = JsonSerializer.Serialize(value);
+        get => JsonConvert.DeserializeObject<AccountOptions>(AccountOption);
+        set => AccountOption = JsonConvert.SerializeObject(value);
     }
     [NotMapped]
     public Option? emailOption
     {
-        get => string.IsNullOrEmpty(_emailOption) ? null : JsonSerializer.Deserialize<Option>(_emailOption);
-        set => _emailOption = value != null ? JsonSerializer.Serialize(value) : null;
+        get => string.IsNullOrEmpty(EmailOption) ? null : JsonConvert.DeserializeObject<Option>(EmailOption);
+        set => EmailOption = value != null ? JsonConvert.SerializeObject(value) : null;
     }
     [NotMapped]
     public ManagerOption managerOption
     {
-        get => string.IsNullOrEmpty(_managerOption) ? null : JsonSerializer.Deserialize<ManagerOption>(_managerOption);
-        set => _managerOption = value != null ? JsonSerializer.Serialize(value) : null;
+        get => string.IsNullOrEmpty(ManagerOption) ? null : JsonConvert.DeserializeObject<ManagerOption>(ManagerOption);
+        set => ManagerOption = value != null ? JsonConvert.SerializeObject(value) : null;
     }
     public string? filter { get; set; }
 
@@ -186,47 +195,54 @@ public class TaskProcess : IHasGuid
 {
     [Key]
     public Guid Guid { get; set; }
-    public string Name { get; set; }
+    public string Name { get; set; } = String.Empty;
     public bool Enabled { get; set; }
     public DateTime Created { get; set; }
     public DateTime? Modified { get; set; }
-    public string Frequency { get; set; }
+
+    [JsonIgnore]
+    public string Frequency { get; set; } = "[]";
+
+    [JsonIgnore]
     public string? CompletedNotification { get; set; }
     public Guid? CreatedNotification { get; set; }
     public Guid? UpdatedNotification { get; set; }
     public Guid AssocIngest { get; set; }
     public IngestData? IngestChild { get; set; }
 
-    
     public bool AllowUpdateFields { get; set; }
     public bool AllowCreateAccount { get; set; }
     public bool AllowSearchLogging { get; set; }
     public int AccountExpirationDays { get; set; }
     public Guid? ParentTask { get; set; }
     public string? Description { get; set; }
-    private DateTime? nextRunTime { get; set; }
-    public string? CompletedFolder {get; set;}
-    public string? RetentionFolder {get; set;}
-    public int? RetentionDays {get; set;}
+    public string? CompletedFolder { get; set; }
+    public string? RetentionFolder { get; set; }
+    public int? RetentionDays { get; set; }
     [NotMapped]
+    [JsonIgnore]
     public CancellationTokenSource? CancelToken { get; set; }
 
     [NotMapped]
-    public string CurrentStatus { get; set; }
+    [JsonIgnore]
+    public string CurrentStatus { get; set; } = String.Empty;
     [NotMapped]
+    [JsonIgnore]
     public int CurrCsvRow { get; set; }
 
     [NotMapped]
+    [JsonIgnore]
     public int MaxCsvRow { get; set; }
 
     [NotMapped]
     public List<Guid>? CompletedNotificationList
     {
-        get => string.IsNullOrEmpty(CompletedNotification) ? null : JsonSerializer.Deserialize<List<Guid>>(CompletedNotification);
-        set => CompletedNotification = value != null ? JsonSerializer.Serialize(value) : null;
+        get => string.IsNullOrEmpty(CompletedNotification) ? null : JsonConvert.DeserializeObject<List<Guid>>(CompletedNotification);
+        set => CompletedNotification = value != null ? JsonConvert.SerializeObject(value) : null;
     }
 
     [NotMapped]
+    [JsonIgnore]
     public double CurrProgress
     {
         get
@@ -246,10 +262,10 @@ public class TaskProcess : IHasGuid
     [NotMapped]
     public Frequency _frequency
     {
-        get => JsonSerializer.Deserialize<Frequency>(Frequency);
+        get => JsonConvert.DeserializeObject<Frequency>(Frequency);
         set
         {
-            Frequency = JsonSerializer.Serialize(value);
+            Frequency = JsonConvert.SerializeObject(value);
             UpdateNextRunTime();
         }
     }
@@ -268,6 +284,7 @@ public class TaskProcess : IHasGuid
         // Set the updated NextRunTime
         NextRunTime = calculatedNextRunTime;
     }
+    [JsonIgnore]
     public DateTime? NextRunTime
     {
         get
@@ -287,4 +304,6 @@ public class TaskProcess : IHasGuid
             nextRunTime = value;
         }
     }
+    [JsonIgnore]
+    private DateTime? nextRunTime;
 }

@@ -10,20 +10,20 @@
                 style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative; overflow: hidden;"
                 class="rz-shadow-4">
                 <RadzenStack Orientation="Orientation.Vertical" AlignItems="AlignItems.Center" Gap="0" class="rz-mb-4">
-                    <RadzenText Text="@ingest.name" TextStyle="TextStyle.H3" />
-                    <RadzenText Text="@ingest.description" TextStyle="TextStyle.Body1" />
+                    <RadzenText Text="@ingest.Name" TextStyle="TextStyle.H3" />
+                    <RadzenText Text="@ingest.Description" TextStyle="TextStyle.Body1" />
                 </RadzenStack>
                         <RadzenText TextStyle="TextStyle.H6" Text="General"></RadzenText>
                         <ul>
                             <li>
                                 <RadzenText TextStyle="TextStyle.Body2">Copies files from
-                                    <strong>@ingest.fileLocation</strong>
+                                    <strong>@ingest.FileLocation</strong>
                                 </RadzenText>
                             </li>
                             @if (ingest.locationMap != null)
                             {
                                 string AssocLocMap = _Context.LocationMaps.Where(lm => lm.Guid ==
-                                ingest.locationMap).FirstOrDefault().name;
+                                ingest.locationMap).FirstOrDefault().Name;
                                 <li>
                                     <RadzenText TextStyle="TextStyle.Body2">Associated Location Map:
                                         <strong>@AssocLocMap</strong>

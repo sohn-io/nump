@@ -7,7 +7,7 @@
         <RadzenColumn SizeXS="12" SizeMD="3" SizeLG="3" SizeXL="2" class="h-100">
             <RadzenCard style="border-radius: 10px; height: 450px; display: flex; flex-direction: column; position: relative;"
                 class="rz-shadow-4">
-                <RadzenText Text="@location.name" TextStyle="TextStyle.H3" TextAlign="TextAlign.Center" />
+                <RadzenText Text="@location.Name" TextStyle="TextStyle.H3" TextAlign="TextAlign.Center" />
 
 
                 <!-- Add a wrapper for the bottom right button -->
@@ -32,7 +32,6 @@
         </RadzenColumn>
 </RadzenRow>
 @code {
-    RadzenDataList<LocationMap> locationmapgrid;
     List<LocationMap> currentLocations = new List<LocationMap>();
 
     void AddNew()
@@ -52,10 +51,6 @@
             _Context.SaveChanges();
 
             currentLocations = await GetCurrentLocationsAsync();
-        }
-        else
-        {
-            await locationmapgrid.Reload();
         }
     }
     private void EditRow(LocationMap location)

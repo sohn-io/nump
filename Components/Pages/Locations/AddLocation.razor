@@ -39,7 +39,7 @@
                 <RadzenStack Orientation="Orientation.Vertical">
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="10" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                         <RadzenLabel Component="LocName" Text="Location Name" />
-                        <RadzenTextBox @bind-value="@newLocation.name"  Name="LabelBox" />
+                        <RadzenTextBox @bind-value="@newLocation.Name"  Name="LabelBox" />
                     </RadzenStack>
                     <RadzenRow AlignItems="AlignItems.Center">
                         <RadzenColumn SizeXS="12" SizeMD="4" SizeLG="3">
@@ -48,7 +48,7 @@
                         <RadzenColumn SizeXS="12" SizeMD="8" SizeLG="9">                        
                             <RadzenCard Style="box-sizing: border-box; height: 50px; display: flex; align-items: center; border: var(--rz-input-border); width: auto;" Variant="Variant.Flat">
                                 @{
-                                    string? ouName = string.IsNullOrEmpty(newLocation.defaultLocation) || !Guid.TryParse(newLocation.defaultLocation, out Guid parsedGuid)
+                                    string? ouName = string.IsNullOrEmpty(newLocation.DefaultLocation) || !Guid.TryParse(newLocation.DefaultLocation, out Guid parsedGuid)
                                         ? null
                                         : ous.Where(x => x.OUGuid == parsedGuid)
                                              .Select(x => x.Name)
@@ -70,11 +70,11 @@
                         <RadzenColumn SizeXS="12" SizeMD="8" SizeLG="9">
                         <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border); width: auto;" Variant="Variant.Flat">
                             @{
-                                if (newLocation.defaultGroups != null)
+                                if (newLocation.DefaultGroups != null)
                                 {
-                                    foreach (Guid defaultGroups in newLocation.defaultGroupList.Take(3))
+                                    foreach (Guid defaultGroups in newLocation.DefaultGroupList.Take(3))
                                     {
-                                        string? groupName = string.IsNullOrEmpty(newLocation.defaultGroups)
+                                        string? groupName = string.IsNullOrEmpty(newLocation.DefaultGroups)
                                             ? null
                                             : groups.Where(x => x.OUGuid == defaultGroups)
                                                  .Select(x => x.Name)
@@ -94,9 +94,9 @@
 
                             }
                             <RadzenRow style="margin-left: auto;" AlignItems="AlignItems.Center">
-                            @if (newLocation.defaultGroupList != null && newLocation.defaultGroupList.Count() > 3)
+                            @if (newLocation.DefaultGroupList != null && newLocation.DefaultGroupList.Count() > 3)
                                     {
-                                        int count = newLocation.defaultGroupList.Count() - 3;
+                                        int count = newLocation.DefaultGroupList.Count() - 3;
                                         <RadzenText>+@count</RadzenText>
                                     }
                             <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="padding: 0;" Click="@(() => OpenGroups())"></RadzenButton>
@@ -115,7 +115,7 @@
                             <RadzenColumn SizeXS="12" SizeSM="6" SizeLG="5">
                                 <RadzenStack Orientation="Orientation.Vertical">
                                     <RadzenText Text="Location Value" />
-                                    <RadzenTextBox  @bind-Value=@location.sourceColumnValue style="height: 50px;"/>
+                                    <RadzenTextBox  @bind-Value=@location.SourceColumnValue style="height: 50px;"/>
                                 </RadzenStack>
                             </RadzenColumn>
                             <RadzenColumn SizeXS="12" SizeSM="6" SizeLG="5">
@@ -123,7 +123,7 @@
                                     <RadzenText Text="AD OU (GUID)" Component="ADOU" />
                                         <RadzenCard Style="height: 50px; display: flex; align-items: center; border: var(--rz-input-border);" Variant="Variant.Flat">
                                             @{
-                                                string? ouName = string.IsNullOrEmpty(location.adOUGuid) || !Guid.TryParse(location.adOUGuid, out Guid parsedGuid)
+                                                string? ouName = string.IsNullOrEmpty(location.AdOUGuid) || !Guid.TryParse(location.AdOUGuid, out Guid parsedGuid)
                                                     ? null
                                                     : ous.Where(x => x.OUGuid == parsedGuid)
                                                          .Select(x => x.Name)
@@ -164,7 +164,7 @@
 
     private LocationMap newLocation = new LocationMap()
     {
-        locationList = new List<Location>()
+        LocationList = new List<Location>()
         {
             new Location()
         }
@@ -207,7 +207,7 @@
         foreach (string value in prefillColumnValues)
         {
             newLocationList.Add(new Location {
-                sourceColumnValue = value
+                SourceColumnValue = value
             });
 
         }
@@ -282,11 +282,11 @@
                 });
             if (result != null && location != null)
             {
-                location.adOUGuid = result.OUGuid.ToString();
+                location.AdOUGuid = result.OUGuid.ToString();
             }
             if (result != null && locationMap != null)
             {
-                locationMap.defaultLocation = result.OUGuid.ToString();
+                locationMap.DefaultLocation = result.OUGuid.ToString();
             }
 
     }
@@ -297,10 +297,10 @@
                     {"groups", groups}
                 };
             
-            if (newLocation.defaultGroups != null)
+            if (newLocation.DefaultGroups != null)
             {
                 HashSet<ADObjectMap> selectedOptions = groups
-                    .Where(x => newLocation.defaultGroupList.Contains(x.OUGuid))
+                    .Where(x => newLocation.DefaultGroupList.Contains(x.OUGuid))
                     .ToHashSet<ADObjectMap>();
                 parameters.Add("selectedOptions", selectedOptions);
             }
@@ -318,7 +318,7 @@
                 });
             if (result != null)
             {
-                    newLocation.defaultGroupList = result.Select(x => x.OUGuid).ToList();
+                    newLocation.DefaultGroupList = result.Select(x => x.OUGuid).ToList();
             }
 
     }
@@ -353,18 +353,18 @@
     }
     public async Task Save()
     {
-        newLocationList.RemoveAll(x => x.adOUGuid == null && x.sourceColumnValue == null);
-        if (newLocationList.GroupBy(x => x.sourceColumnValue).Where(x => x.Count() > 1).Count() != 0)
+        newLocationList.RemoveAll(x => x.AdOUGuid == null && x.SourceColumnValue == null);
+        if (newLocationList.GroupBy(x => x.SourceColumnValue).Where(x => x.Count() > 1).Count() != 0)
         {
             NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Duplicate Values", Detail = "Unique File Values only!", Duration = 4000 });
             return;
         }
-        if (newLocationList.Any(x => x.sourceColumnValue == null || x.adOUGuid == null))
+        if (newLocationList.Any(x => x.SourceColumnValue == null || x.AdOUGuid == null))
         {
             NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Empty Values", Detail = "Empty Values Afoot", Duration = 4000 });
             return;
         }
-        newLocation.locationList = newLocationList;
+        newLocation.LocationList = newLocationList;
         if (_Context.LocationMaps.Any(e => e.Guid == newLocation.Guid))
         {
             _Context.Update<LocationMap>(newLocation);
@@ -388,7 +388,7 @@
             if (existingLocationMap != null)
             {
                 newLocation = existingLocationMap;
-                newLocationList = existingLocationMap.locationList;
+                newLocationList = existingLocationMap.LocationList;
                 
             }
             else

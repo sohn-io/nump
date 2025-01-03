@@ -1,18 +1,34 @@
 @page "/history"
 @inject NumpContext _context
 @inject NavigationManager _Nav
+@inject UserService _UserService
+@inject IJSRuntime JSRuntime
+@inject DialogService DialogService
+@using Newtonsoft.Json
+@using CsvHelper
+
 <RadzenRow>
     <RadzenColumn Size="4">
         <RadzenText TextStyle="TextStyle.DisplayH4" Text="Task Runs" />
     </RadzenColumn>
 </RadzenRow>
 
-<RadzenDataGrid Data="@taskLogs">
+<RadzenDataGrid Data="@taskLogs" AllowFiltering="true" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" FilterMode="FilterMode.CheckBoxList" AllowColumnReorder="true" Style="height: 75%;">
     <Columns>
         <RadzenDataGridColumn Property="RunTime" Title="Run Time" />
         <RadzenDataGridColumn Property="TaskDisplayName" Title="Task Name" />
         <RadzenDataGridColumn Property="CurrentStatus" Title="Status" />
         <RadzenDataGridColumn Property="Result" Title="Result" />
+        <RadzenDataGridColumn Property="CsvLocation" Title="Download" Filterable="false">
+            <Template>
+                @if (context.CsvLocation != null && File.Exists(context.CsvLocation))
+                {
+                    <RadzenButton Click="@(() => DownloadCSV(context.CsvLocation))" Text="Download" Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" />
+                    <!--<RadzenButton Click="@(() => ViewCSV(context.CsvLocation))" Text="View" Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small" /> -->
+
+                }
+            </Template>
+        </RadzenDataGridColumn>
         <RadzenDataGridColumn>
             <Template Context="taskLog">
                 <RadzenButton Text="Modification History" Variant="Variant.Text" Size="ButtonSize.Small" Click="@(() => GoToModification(taskLog.Guid))" />
@@ -32,6 +48,41 @@
     private async Task GoToCreation(Guid TaskRunId)
     {
         _Nav.NavigateTo($"/history/user/creation/{TaskRunId}");
+    }
+    private async Task DownloadCSV(string csvLoc)
+    {
+        string csvName = Path.GetFileName(csvLoc);
+        var csv = await File.ReadAllLinesAsync(csvLoc);
+        string fileName = csvName;
+        string csvString = string.Join("\n", csv);
+        byte[] byteArray = Encoding.UTF8.GetBytes(csvString);
+        var fileStream = new MemoryStream(byteArray);
+        using var streamRef = new DotNetStreamReference(stream: fileStream);
+
+        await JSRuntime.InvokeVoidAsync("downloadFileFromStream", fileName, streamRef);
+    }
+    private async Task ViewCSV(string csvLoc)
+    {
+            Dictionary<int, Dictionary<string, object>> csvData = new Dictionary<int, Dictionary<string, object>>();
+            List<string> csvHeaders = new List<string>();
+            using (FileStream fileStream = new FileStream(csvLoc, FileMode.Open, FileAccess.Read))
+            using (StreamReader reader = new StreamReader(fileStream))
+            using (CsvReader csv = new CsvReader(reader, new CsvHelper.Configuration.CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)))
+            {
+                csv.Read();
+                csv.ReadHeader();
+                csvHeaders = csv.HeaderRecord.ToList();
+                int i = 0;
+                while (csv.Read())
+                {
+                    var currCsvRecord = csv.GetRecord<dynamic>();
+                    Dictionary<string, object> csvRecordDictionary = UserService.ConvertDynamicToDictionary(currCsvRecord);
+                    csvData.Add(i, csvRecordDictionary);
+                    i++;
+                }
+            }
+
+            DialogService.Open<CSVViewer>("", new Dictionary<string, object> { { "CsvData", csvData }, { "CsvHeaders", csvHeaders } }, new DialogOptions() { Width = "80%", Height = "80%", Resizable = true });
     }
     protected override async Task OnInitializedAsync()
     {
