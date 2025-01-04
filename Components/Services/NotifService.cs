@@ -122,11 +122,11 @@ public partial class NotifService
             return "FAILED";
         }
     }
-    public async Task<string> SendEmailSMTP(NotificationData notification, string body, string smtpServer, int smtpPort, string smtpUser, string smtpPassword, int secureType)
+    public async Task<string> SendEmailSMTP(NotificationData notification, string body, string smtpServer, int smtpPort, string smtpUser, string smtpPassword, int secureType, string mailbox, string displayName)
     {
 
         var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(smtpUser, smtpUser));
+        message.From.Add(new MailboxAddress(displayName, mailbox));
         message.Subject = notification.Subject;
         // Create the email message
         foreach (string recipient in notification.SendRecipientsList)

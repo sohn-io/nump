@@ -12,6 +12,8 @@ using System.Text.Json;
 using System.DirectoryServices.ActiveDirectory;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using nump.Components.Pages.Settings;
+using CsvHelper.Configuration;
+using System.Globalization;
 namespace nump.Components.Services;
 public partial class UserService
 {
@@ -81,12 +83,12 @@ public partial class UserService
         List<ADAttributeMap> updatableAttributes = enabledAttributes.Where(x => x.allowUpdate).ToList();
         List<ADAttributeMap> conformableAttributes = requiredAttributes.Concat(updatableAttributes).ToList();
 
-        List<string> headersToCheck = conformableAttributes.Select(x => x.associatedColumn).ToList();
+        List<string> headersToCheck = conformableAttributes.Select(x => x.associatedColumn).ToList().ConvertAll(d => d.ToLower());
         LocationMap? currLocationMap = _context.LocationMaps.Where(x => x.Guid == task.IngestChild.locationMap).FirstOrDefault();
 
         if (task.IngestChild.adLocationColumn != null)
         {
-            headersToCheck.Add(task.IngestChild.adLocationColumn);
+            headersToCheck.Add(task.IngestChild.adLocationColumn.ToLower());
         }
 
         //Initialization
@@ -104,9 +106,15 @@ public partial class UserService
             task.MaxCsvRow = await GetRowCount(file);
             OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task)); ;
             Dictionary<int, Dictionary<string, string>> csvData = new Dictionary<int, Dictionary<string, string>>();
+            
+                var csvConfig = new CsvConfiguration(CultureInfo.InvariantCulture)
+                {
+                    PrepareHeaderForMatch
+                    = args => args.Header.ToLower()
+                };
             using (FileStream fileStream = new FileStream(file, FileMode.Open, FileAccess.Read))
             using (StreamReader reader = new StreamReader(fileStream))
-            using (CsvReader csv = new CsvReader(reader, new CsvHelper.Configuration.CsvConfiguration(System.Globalization.CultureInfo.InvariantCulture)))
+            using (CsvReader csv = new CsvReader(reader, csvConfig))
             {
                 csv.Read();
                 csv.ReadHeader();
@@ -120,11 +128,14 @@ public partial class UserService
                     return;
                 }
                 task.CurrCsvRow = 0;
-                OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task)); ;
+                OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task));
                 int lineNumber = 0;
 
                 while (csv.Read())
                 {
+                    Stopwatch timer = new Stopwatch();
+                    timer.Start();
+
                     await CheckCancel(task);
 
                     Dictionary<string, string> requiredElements = new Dictionary<string, string>();
@@ -146,7 +157,7 @@ public partial class UserService
                     {
                         foreach (var columnItem in enabledAttributes)
                         {
-                            var columnValue = csvRecordDictionary[columnItem.associatedColumn].ToString();
+                            var columnValue = csvRecordDictionary[columnItem.associatedColumn.ToLower()].ToString();
                             newUser.Add(columnItem.selectedAttribute, columnValue);
                         }
                     }
@@ -181,7 +192,7 @@ public partial class UserService
                         }
                         catch
                         {
-
+                            Console.WriteLine("Failed to create user");
                         }
                         await MoveOn(task, true);
                         continue;
@@ -220,7 +231,7 @@ public partial class UserService
                         allUpdatedUsers.Add(user);
                     }
                     await MoveOn(task, false);
-
+                    
                 }
 
             }
@@ -239,7 +250,7 @@ public partial class UserService
                 user.Dispose();
             }
         }
-        await DoTaskSuccess(task);
+        await DoTaskSuccess(task); 
 
 
     }
@@ -255,7 +266,8 @@ public partial class UserService
     {
         string completedFolder = task.IngestChild.FileLocation;
         string destFile = "";
-        if (task.CompletedFolder != null)
+
+        if (task.CompletedFolder != null && task.CompletedFolder.Length > 0)
         {
             completedFolder = await ReplaceVariablesAnonymous(task.CompletedFolder, new Dictionary<string, string>()
             {
@@ -280,7 +292,7 @@ public partial class UserService
                 File.Move(file, destFile);
             }
         }
-        if (task.RetentionDays != null)
+        if (task.RetentionDays != null && task.RetentionFolder.Length > 0)
         {
             string retentionFolder = task.IngestChild.FileLocation;
             if (task.RetentionFolder != null)
@@ -399,7 +411,9 @@ public partial class UserService
             string encryptedPassword = data["password"].ToString();
             string smtpPassword = await _pw.DecryptStringFromBase64_Aes(encryptedPassword, null);
             int secureType = data.ContainsKey("secureType") ? int.Parse(data["secureType"].ToString()) : 0;
-            result = await _notify.SendEmailSMTP(notification, body, smtpServer, smtpPort, smtpUser, smtpPassword, secureType);
+            string displayName = data["displayName"].ToString();
+            string mailbox = data["mailbox"].ToString();
+            result = await _notify.SendEmailSMTP(notification, body, smtpServer, smtpPort, smtpUser, smtpPassword, secureType, displayName, mailbox);
         }
         Guid logged = await SaveNotificationLog(notification, result);
     }
@@ -604,7 +618,7 @@ public partial class UserService
             Filter = ldapFilter, // Set the search filter dynamically
             SearchScope = SearchScope.Subtree,
         };
-
+        
         // Execute the search and get the first result
         SearchResultCollection searchResult = searcher.FindAll();
         if (searchResult.Count == 0)
@@ -995,12 +1009,12 @@ public partial class UserService
         switch (task.IngestChild.managerOption.Option)
         {
             case "Custom":
-                user.Add("manager", await ReplaceVariablesAnonymous(task.IngestChild.managerOption.Value, user));
+                user.Add("manager", await ReplaceVariablesAnonymous(task.IngestChild.managerOption.Value.ToLower(), user));
                 break;
             case "Column":
                 Dictionary<string, string> requiredElements = new Dictionary<string, string>
                 {
-                    {task.IngestChild.managerOption.SourceColumn, csvRecord[task.IngestChild.managerOption.Value].ToString()}
+                    {task.IngestChild.managerOption.SourceColumn, csvRecord[task.IngestChild.managerOption.Value.ToLower()].ToString()}
                 };
                 var Managers = await FindUser(requiredElements);
                 if (Managers != null)
@@ -1115,7 +1129,7 @@ public partial class UserService
         string locationValue = String.Empty;
         try
         {
-            locationValue = csvRecord[currentIngest.adLocationColumn].ToString();
+            locationValue = csvRecord[currentIngest.adLocationColumn.ToLower()].ToString();
         }
         catch (Exception ex)
         {

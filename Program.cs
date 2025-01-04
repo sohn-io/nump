@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.ResponseCompression;
 
 using Radzen;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddDbContext<NumpContext>(options =>
 {
     options.UseSqlite("Data Source=nump.db;Default Timeout=30");
+    options.UseLoggerFactory(LoggerFactory.Create(builder => builder.AddFilter((category, level) => false)));
 });
 builder.Services.AddSingleton<TaskSchedulerService>();
 
@@ -50,13 +52,23 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(Path.Combine(System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location), "wwwroot")),
+        RequestPath = ""
+    });
+    
 }
-
+else
+{
+    app.UseStaticFiles();
+}
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 app.MapControllers();
+
 app.Run();

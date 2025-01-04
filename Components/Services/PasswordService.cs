@@ -161,7 +161,7 @@ public class PasswordService
         // Return the generated password as a string
         return new string(randomPassword.ToArray());
     }
-    public async Task<byte[]?> GenerateKey()
+    /*public async Task<byte[]?> GenerateKey()
     {
         byte[] key;
         using (Aes aes = Aes.Create())
@@ -181,11 +181,11 @@ public class PasswordService
         {
             Target = "NUMP_AES_KEY",
             Password = keyAsString, // Store the key as the password (string format)
-            PersistanceType = PersistanceType.LocalComputer // Store on the local machine
+            PersistanceType = PersistanceType.Enterprise // Store on the local machine
         };
         cm.Save();
     }
-    public byte[] RetrieveKeyFromCredentialManager()
+    public byte[]? RetrieveKeyFromCredentialManager()
     {
         var cm = new Credential
         {
@@ -193,11 +193,33 @@ public class PasswordService
         };
         cm.Load();
 
-        if (cm.Password != null)
+        if (cm.Password != null || cm.Password.Length > 0)
         {
             return Convert.FromBase64String(cm.Password); // Convert back to byte array
         }
         return null;
+    }*/
+
+    public async Task GenerateAndStoreKey()
+    {
+        byte[] key;
+        using (Aes aes = Aes.Create())
+        {
+            aes.KeySize = 256;
+            aes.GenerateKey();
+            key = aes.Key;
+        }
+        byte[] encryptedData = ProtectedData.Protect(key, null, DataProtectionScope.CurrentUser);
+        File.WriteAllBytes("aesKey.dat", encryptedData);
+    }
+    public async Task<byte[]?> RetrieveKey()
+    {
+        if (!File.Exists("aesKey.dat"))
+        {
+            return null;
+        }
+        byte[] encryptedData = File.ReadAllBytes("aesKey.dat");
+        return ProtectedData.Unprotect(encryptedData, null, DataProtectionScope.CurrentUser);
     }
     public async Task<string> EncryptStringToBase64_Aes(string plainText, byte[]? key = null)
     {
@@ -205,10 +227,11 @@ public class PasswordService
             throw new ArgumentNullException(nameof(plainText));
         if (key == null || key.Length <= 0)
         {
-            key = RetrieveKeyFromCredentialManager();
-            if (key == null)
+            key = await RetrieveKey();
+            if (key == null || key.Length <= 0)
             {
-               key = await GenerateKey();
+               await GenerateAndStoreKey();
+                key = await RetrieveKey();
 
             }
         }
@@ -218,9 +241,19 @@ public class PasswordService
 
         using (Aes aes = Aes.Create())
         {
-            aes.Key = key;
-            aes.GenerateIV();
-            iv = aes.IV;
+            try
+            {
+                aes.Key = key;
+                aes.GenerateIV();
+                iv = aes.IV;
+            }
+            catch (Exception e)
+            {
+
+            System.Diagnostics.EventLog.WriteEntry("Application", $"Encryption key Length: {key.Length}", System.Diagnostics.EventLogEntryType.Information);
+                return null;
+            }
+
 
             ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
 
@@ -248,7 +281,7 @@ public class PasswordService
     {
         if (key == null)
         {
-            key = RetrieveKeyFromCredentialManager();
+            key = await RetrieveKey();
         }
         
         if (cipherTextCombinedBase64 == null || cipherTextCombinedBase64.Length <= 0)

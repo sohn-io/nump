@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using nump.Components.Classes;
+using Microsoft.Extensions.Logging;
+
 namespace nump.Components.Database;
 
 public partial class NumpContext : DbContext
@@ -10,7 +12,6 @@ public partial class NumpContext : DbContext
 
     public NumpContext(DbContextOptions<NumpContext> options) : base(options)
     {
-
     }
 
     partial void OnModelBuilding(ModelBuilder builder);

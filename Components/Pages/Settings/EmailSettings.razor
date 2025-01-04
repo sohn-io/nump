@@ -21,6 +21,9 @@
     <RadzenNumeric Placeholder="Port" Max="65536" @bind-Value=@smtpPort />
     <RadzenTextBox Placeholder="Username" @bind-Value=@smtpUser />
     <RadzenPassword Placeholder="Password" @bind-Value=@smtpPassword />
+    <RadzenTextBox Placeholder="Send as (Mailbox)" @bind-Value=@mailbox />
+    <RadzenTextBox Placeholder="Send as (Display Name)" @bind-Value=@displayName />
+
     <RadzenRadioButtonList @bind-Value=@SecureType TValue="int">
         <Items>
             <RadzenRadioButtonListItem Text="None" Value="1" />
@@ -46,17 +49,19 @@
     int? smtpPort = 587;
     string? smtpUser;
     string? smtpPassword;
+    string displayName = String.Empty;
+    string mailbox = String.Empty;
 
     private async Task Save()
     {
         emailData = new Dictionary<string, dynamic>();
             
         emailData.Add("emailType", emailType);
-        byte[]? key =  _pw.RetrieveKeyFromCredentialManager();
+        byte[]? key =  await _pw.RetrieveKey();
         if (key == null || key.Length == 0)
         {
-            await _pw.GenerateKey();
-            key = _pw.RetrieveKeyFromCredentialManager();
+            await _pw.GenerateAndStoreKey();
+            key = await _pw.RetrieveKey();
         }
         if (emailType == 1)
         {
@@ -75,6 +80,8 @@
                 string encryptedPw = await _pw.EncryptStringToBase64_Aes(smtpPassword, key);
                 emailData.Add("password", encryptedPw);
                 emailData.Add("secureType", SecureType);
+                emailData.Add("mailbox", mailbox);
+                emailData.Add("displayName", displayName);
         }
 
         var json = JsonSerializer.Serialize(emailData);
@@ -102,7 +109,11 @@
         Setting setting = await _context.Settings.Where(x => x.SettingName == settingName).FirstOrDefaultAsync();
         if (setting != null)
         {
-            byte[] key = _pw.RetrieveKeyFromCredentialManager();
+            byte[]? key = await _pw.RetrieveKey();
+            if (key == null || key.Length == 0)
+            {
+                return null;
+            }
             Dictionary<string, dynamic> keyValuePairs = JsonSerializer.Deserialize<Dictionary<string, dynamic>>(setting.Data);
                 var test = keyValuePairs[keyName];
                 string rawValue = test.ToString();
@@ -135,6 +146,8 @@
                 smtpUser = keyValuePairs["smtpUser"].ToString();
                 smtpPassword = (await Retrieve("Email", "password"));
                 SecureType = keyValuePairs.ContainsKey("secureType") ? int.Parse(keyValuePairs["secureType"].ToString()) : 1;
+                mailbox = keyValuePairs["mailbox"].ToString();
+                displayName = keyValuePairs["displayName"].ToString();
             }
         }
     }
