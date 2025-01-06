@@ -4,12 +4,17 @@
 @inject NavigationManager _Nav
 @inject NumpContext _Context
 @inject DialogService DialogService
+@inject PasswordService _pw
+@inject NotifService _Notify
+@inject UserService _User
+@using Newtonsoft.Json
 
 <RadzenTemplateForm data="@newNotification" Submit="@(() => Save())" TItem="NotificationData">
     <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Filled" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Success" Text="Save" class="sticky" />
     <RadzenDropDown Data="@NotificationTypes" TextProperty="Key" ValueProperty="Value"
         @bind-Value=@newNotification.NotificationType />
     <RadzenTextBox Placeholder="Name" @bind-Value=@newNotification.Name />
+    <RadzenButton Text="Test" Click="@TestNotification" />
     <RadzenStack Orientation="Orientation.Vertical" Gap="10">
         <RadzenTextBox Placeholder="To" @bind-Value=@sendRecipients />
         <RadzenTextBox Placeholder="CC" @bind-Value=@ccRecipients />
@@ -82,6 +87,28 @@
         await _Save.HandleSave(newNotification);
         _Nav.NavigateTo("/notifications");
 
+    }
+
+    private async Task TestNotification()
+    {
+        Setting EmailSettings = await _Context.Settings.Where(x => x.SettingName == "Email").FirstOrDefaultAsync();
+
+        if (EmailSettings != null)
+        {
+            var Data = JsonConvert.DeserializeObject<Dictionary<string, object>>(EmailSettings.Data);
+            string smtpServer = Data["smtpServer"].ToString();
+            int smtpPort = int.Parse(Data["smtpPort"].ToString());
+            string smtpUser = Data["smtpUser"].ToString();
+            string password = await _pw.DecryptStringFromBase64_Aes(Data["password"].ToString());
+            string displayName = Data["displayName"].ToString();
+            string mailbox = Data["mailbox"].ToString();
+            string body = newNotification.Body;
+            int secureType = int.Parse(Data["secureType"].ToString());
+
+
+            
+            await _Notify.SendEmailSMTP(newNotification, body, smtpServer, smtpPort, smtpUser, password, secureType, mailbox, displayName);
+        }
     }
     public async Task ShowVariableInfo()
     {

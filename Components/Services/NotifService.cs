@@ -126,6 +126,15 @@ public partial class NotifService
     {
 
         var message = new MimeMessage();
+
+        Console.WriteLine("Display Name " + displayName);
+        Console.WriteLine("Mailbox: " + mailbox);
+        Console.WriteLine("SMTP Server: " + smtpServer);
+        Console.WriteLine("SMTP Port: " + smtpPort);
+        Console.WriteLine("User: " + smtpUser);
+        Console.WriteLine("Password: " + smtpPassword);
+        Console.WriteLine("Secure Type: " + secureType);
+
         message.From.Add(new MailboxAddress(displayName, mailbox));
         message.Subject = notification.Subject;
         // Create the email message
@@ -148,7 +157,23 @@ public partial class NotifService
             }
         }
 
-        message.Body = new TextPart(notification.Type)
+        TextFormat textFormat;
+        switch (notification.Type)
+        {
+            case "HTML":
+                textFormat = TextFormat.Html;
+                break;
+
+            case "Plain":
+                textFormat = TextFormat.Plain;
+                break;
+
+            default:
+                textFormat = TextFormat.Html;
+                break;
+        }
+
+        message.Body = new TextPart(textFormat)
         {
             Text = body
         };
@@ -156,7 +181,7 @@ public partial class NotifService
         // Add recipient
 
         // Set up the SMTP client
-        SecureSocketOptions secureOptions = SecureSocketOptions.Auto;
+        SecureSocketOptions secureOptions;
 
             switch (secureType)
             {
