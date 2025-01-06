@@ -127,14 +127,6 @@ public partial class NotifService
 
         var message = new MimeMessage();
 
-        Console.WriteLine("Display Name " + displayName);
-        Console.WriteLine("Mailbox: " + mailbox);
-        Console.WriteLine("SMTP Server: " + smtpServer);
-        Console.WriteLine("SMTP Port: " + smtpPort);
-        Console.WriteLine("User: " + smtpUser);
-        Console.WriteLine("Password: " + smtpPassword);
-        Console.WriteLine("Secure Type: " + secureType);
-
         message.From.Add(new MailboxAddress(displayName, mailbox));
         message.Subject = notification.Subject;
         // Create the email message
