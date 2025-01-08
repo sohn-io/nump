@@ -1001,6 +1001,7 @@ public partial class UserService
                     {
                         DirectoryEntry groupToAdd = groupsToAdd[0];
                         groupToAdd.Properties["member"].Add(newUser.Path);
+                        groupToAdd.CommitChanges();
                     }
                     catch (Exception ex)
                     {
@@ -1105,6 +1106,7 @@ public partial class UserService
     {
         return new UserPrincipal(context)
         {
+            Name = user.ContainsKey("displayName") ? user["displayName"] : null,
             GivenName = user.ContainsKey("givenName") ? user["givenName"] : null,
             Surname = user.ContainsKey("sn") ? user["sn"] : null,
             DisplayName = user.ContainsKey("displayName") ? user["displayName"] : null,
