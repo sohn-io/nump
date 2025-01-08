@@ -308,7 +308,17 @@ SendRecipientsList = new List<string>()
             try
             {
                 suffixList.Add(Domain.GetCurrentDomain().Name);
-
+                DirectoryEntry rootDSE = new DirectoryEntry(@"LDAP://RootDSE");
+                string? context = rootDSE.Properties["configurationNamingContext"].Value?.ToString();
+                if (context != null)
+                {
+                    DirectoryEntry partition = new DirectoryEntry(@"LDAP://CN=Partitions," + context);
+    
+                    foreach (string suffix in partition.Properties["uPNSuffixes"])
+                    {
+                        suffixList.Add(suffix);
+                    }
+                }
             }
             catch
             {
