@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using nump.Components.Pages.Settings;
 using CsvHelper.Configuration;
 using System.Globalization;
+using Radzen;
 namespace nump.Components.Services;
 public partial class UserService
 {
@@ -897,9 +898,23 @@ public partial class UserService
 
             string ouPath = await GetTentativeOuPath(task, csvRecord);
             Dictionary<string, string> creds = await GetCreds();
+            PrincipalContext context = new PrincipalContext(ContextType.Domain);
             string ldapPath = $"LDAP://" + creds["domain"] + "/" + ouPath;
-            PrincipalContext context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath, creds["username"] + "@" + creds["domain"], creds["password"]);
-
+            if (creds.Count > 0)
+            {
+                context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath, creds["username"] + "@" + creds["domain"], creds["password"]);
+            }
+            else
+            {
+                try
+                {
+                    context = new PrincipalContext(ContextType.Domain, Domain.GetCurrentDomain().Name, ouPath);
+                }
+                catch
+                {
+                    Console.WriteLine("Not on domain probs");
+                }
+            }
             string sam = await FindValidUsername(task.IngestChild.accountOption, user);
             sam = sam.ToLower();
             user.Add("samAccountName", sam);
