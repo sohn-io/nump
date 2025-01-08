@@ -5,7 +5,8 @@
 @inject SaveService<TaskProcess> _Save
 @inject DialogService DialogService
 @inject TaskSchedulerService _taskScheduler
-
+@inject PasswordService _pw
+@using Newtonsoft.Json
 
     <RadzenTemplateForm Data="@newTask" TItem="TaskProcess" Submit="@(() => Submit())" >
 <RadzenButton ButtonType="ButtonType.Submit" Icon="save" Variant="Variant.Filled" Size="ButtonSize.Medium" ButtonStyle="ButtonStyle.Success" Text="Save" class="sticky" />
@@ -68,6 +69,17 @@
                             </RadzenLabel>
                             <RadzenSwitch @bind-Value=@newTask.AllowCreateAccount />
                         </RadzenStack>
+                        @if (newTask.AllowCreateAccount && suffixList.Count > 0)
+                        {
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
+                            JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
+                            <RadzenLabel>UPN Suffix <RadzenButton ButtonStyle="ButtonStyle.Info"
+                                    Variant="Variant.Text" Size="ButtonSize.ExtraSmall"></RadzenButton>
+                            </RadzenLabel>
+                            <RadzenDropDown Data="@suffixList" @bind-Value=@newTask.CreateDomain />
+                        </RadzenStack>
+                        }
+
                         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center"
                             JustifyContent="JustifyContent.SpaceBetween" Gap="1rem" Wrap="FlexWrap.Wrap">
                             <RadzenLabel Text="Existing User Updating" />
@@ -123,8 +135,9 @@
                     </RadzenStack>
                 </ChildContent>
             </RadzenPanel>
+    using Newtonsoft.Json;
         </RadzenColumn>
-        <RadzenColumn SizeXS="12" SizeMD="6" SizeLG="6" SizeXL="4">
+        <RadzenColumn SizeXS="12" SizeMD="6" SizeLG="6" SizeXL="6" SizeXX="4">
             <RadzenPanel AllowCollapse="true" class="rz-mb-4">
                 <HeaderTemplate>
                     <RadzenText TextStyle="TextStyle.H6" class="rz-display-flex rz-align-items-center rz-mb-4">
@@ -221,6 +234,7 @@ Name = "NONE"
 
     int frequencyType = 0;
 
+    List<string> suffixList = new List<string>();
     TaskProcess newTask = new TaskProcess()
     {
         Enabled = true,
@@ -288,6 +302,39 @@ SendRecipientsList = new List<string>()
             newFrequency = existingTask._frequency;
 
         }
+        Setting? ADSetting = _Context.Settings.Where(x => x.SettingName == "ActiveDirectory").FirstOrDefault();
+        if (ADSetting == null)
+        {
+            try
+            {
+                suffixList.Add(Domain.GetCurrentDomain().Name);
+
+            }
+            catch
+            {
+                suffixList.Clear();
+            }
+        }
+        else
+        {
+            var Data = JsonConvert.DeserializeObject<Dictionary<string, string>>(ADSetting.Data);
+            suffixList.Add(Data["domain"]);
+
+                DirectoryEntry rootDSE = new DirectoryEntry(@"LDAP://" + Data["domain"], Data["domain"] + "\\" + Data["username"], await _pw.DecryptStringFromBase64_Aes(Data["password"]));
+                string? context = rootDSE.Properties["configurationNamingContext"].Value?.ToString();
+                if (context != null)
+                {
+                    DirectoryEntry partition = new DirectoryEntry(@"LDAP://CN=Partitions," + context);
+    
+                    foreach (string suffix in partition.Properties["uPNSuffixes"])
+                    {
+                        suffixList.Add(suffix);
+                    }
+                }
+
+        }
+
+
     }
 
     public async Task Submit()

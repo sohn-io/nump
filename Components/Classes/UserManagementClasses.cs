@@ -212,6 +212,7 @@ public class TaskProcess : IHasGuid
 
     public bool AllowUpdateFields { get; set; }
     public bool AllowCreateAccount { get; set; }
+    public string? CreateDomain {get; set;}
     public bool AllowSearchLogging { get; set; }
     public int AccountExpirationDays { get; set; }
     public Guid? ParentTask { get; set; }
