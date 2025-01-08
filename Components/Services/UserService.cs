@@ -72,7 +72,7 @@ public partial class UserService
     }
     public async Task DoTask(TaskProcess task)
     {
-        
+
         List<NotificationData> notifications = await _context.Notifications.Where(x => task.CompletedNotificationList != null ? task.CompletedNotificationList.Contains(x.Guid) : false || x.Guid == task.CreatedNotification || x.Guid == task.UpdatedNotification).ToListAsync();
 
         task.CurrentStatus = "Running";
@@ -97,21 +97,23 @@ public partial class UserService
             return;
         }
         List<string> csvFiles = Directory.EnumerateFiles(task.IngestChild.FileLocation, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".csv")).ToList();
+
         foreach (string file in csvFiles)
         {
             await CheckCancel(task);
+            List<DirectoryEntry> allUsers = await FindUser(new Dictionary<string, string>() { { "objectClass", "user" } });
             List<string> headerRow = new List<string>();
             List<DirectoryEntry> allCreatedUsers = new List<DirectoryEntry>();
             List<DirectoryEntry> allUpdatedUsers = new List<DirectoryEntry>();
             task.MaxCsvRow = await GetRowCount(file);
             OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task)); ;
-            Dictionary<int, Dictionary<string, string>> csvData = new Dictionary<int, Dictionary<string, string>>();
-            
-                var csvConfig = new CsvConfiguration(CultureInfo.InvariantCulture)
-                {
-                    PrepareHeaderForMatch
-                    = args => args.Header.ToLower()
-                };
+            var csvData = new Dictionary<int, Dictionary<string, string>>();
+
+            var csvConfig = new CsvConfiguration(CultureInfo.InvariantCulture)
+            {
+                PrepareHeaderForMatch
+                = args => args.Header.ToLower()
+            };
             using (FileStream fileStream = new FileStream(file, FileMode.Open, FileAccess.Read))
             using (StreamReader reader = new StreamReader(fileStream))
             using (CsvReader csv = new CsvReader(reader, csvConfig))
@@ -127,37 +129,68 @@ public partial class UserService
                     await StopTask(task, "HEADER MISMATCH");
                     return;
                 }
-                task.CurrCsvRow = 0;
                 OnTaskUpdated?.Invoke(this, new TaskUpdatedEventArgs(task));
                 int lineNumber = 0;
 
                 while (csv.Read())
                 {
+
+                    var record = new Dictionary<string, string>();
+
+                    // For each header, get the value from the current record and add it to the dictionary
+                    for (int i = 0; i < headerRow.Count; i++)
+                    {
+                        var header = headerRow[i];
+                        var value = csv.GetField(i);
+                        record[header.ToLower()] = value;
+                    }
+
+                    // Add the record to the result dictionary with line index as the key
+                    csvData[lineNumber] = record;
+
+                    // Increment the line index
+                    lineNumber++;
+                }
+                task.CurrCsvRow = 0;
+                    Stopwatch Timer = new Stopwatch();
+                    Timer.Start();
+                foreach (var csvLine in csvData)
+                {
+
+                    Dictionary<string, string> requiredElements = new Dictionary<string, string>();
+
+                    foreach (ADAttributeMap requiredAttribute in requiredAttributes)
+                    {
+                        requiredElements.Add(requiredAttribute.selectedAttribute, csvLine.Value[requiredAttribute.associatedColumn.ToLower()]);
+                    }
+
                     Stopwatch timer = new Stopwatch();
                     timer.Start();
 
                     await CheckCancel(task);
 
-                    Dictionary<string, string> requiredElements = new Dictionary<string, string>();
-                    var currCsvRecord = csv.GetRecord<dynamic>();
-                    Dictionary<string, object> csvRecordDictionary = ConvertDynamicToDictionary(currCsvRecord);
+                    List<DirectoryEntry> dirObjects  = allUsers.Where(user =>
+                        requiredElements.All(attr =>
+                        {
+                            // Log the property name and value to debug
+                            var userPropertyValue = user.Properties[attr.Key]?.Value?.ToString();
 
-                    foreach (ADAttributeMap requiredAttribute in requiredAttributes)
-                    {
-                        requiredElements.Add(requiredAttribute.selectedAttribute, csv.GetField<string>(requiredAttribute.associatedColumn));
-                    }
-                    List<DirectoryEntry> dirObjects = await FindUser(requiredElements);
+                            // Ensure the directory entry has the attribute and that values match
+                            return user.Properties.Contains(attr.Key) &&
+                                   string.Equals(userPropertyValue, attr.Value, StringComparison.OrdinalIgnoreCase);
+                        })
+                    ).ToList();
 
                     Dictionary<string, string> newUser = new Dictionary<string, string>()
                             {
                                 {"taskName", task.Name}
                             };
-
+                    
                     if (enabledAttributes != null)
                     {
                         foreach (var columnItem in enabledAttributes)
                         {
-                            var columnValue = csvRecordDictionary[columnItem.associatedColumn.ToLower()].ToString();
+                            var columnValue = csvLine.Value.Where(x => x.Key == columnItem.associatedColumn.ToLower()).Select(x => x.Value).FirstOrDefault().ToString();
                             newUser.Add(columnItem.selectedAttribute, columnValue);
                         }
                     }
@@ -171,7 +204,7 @@ public partial class UserService
                         await MoveOn(task, true);
                         continue;
                     }
-                    if (dirObjects == null)
+                    if (dirObjects == null || dirObjects.Count == 0)
                     {
                         if (task.AllowSearchLogging)
                         {
@@ -187,8 +220,10 @@ public partial class UserService
                         }
                         try
                         {
-                            DirectoryEntry createdUser = await NewUser(task, conformableAttributes, csvRecordDictionary, newUser);
+                            DirectoryEntry createdUser = await NewUser(task, conformableAttributes, csvLine.Value, newUser);
                             allCreatedUsers.Add(createdUser);
+                            allUsers.Add(createdUser);
+
                         }
                         catch
                         {
@@ -212,7 +247,7 @@ public partial class UserService
                         await MoveOn(task, true);
                         continue;
                     }
-                    int? updatedValues = await UpdateUser(conformableAttributes, newUser, user, task, csvRecordDictionary, true);
+                    int? updatedValues = await UpdateUser(conformableAttributes, newUser, user, task, csvLine.Value, true);
                     if (task.CurrCsvRow != task.MaxCsvRow)
                     {
                         task.CurrCsvRow++;
@@ -231,9 +266,10 @@ public partial class UserService
                         allUpdatedUsers.Add(user);
                     }
                     await MoveOn(task, false);
-                    
-                }
 
+                }
+                    Timer.Stop();
+                    Console.WriteLine("Elapsed in MS: " + Timer.ElapsedMilliseconds);
             }
             loggedTask.CreatedUsers = allCreatedUsers.Count();
             loggedTask.UpdatedUsers = allUpdatedUsers.Count();
@@ -245,12 +281,19 @@ public partial class UserService
                     await HandleNotifications(task, loggedTask, notification, allCreatedUsers, allUpdatedUsers);
                 }
             }
-            foreach (var user in allCreatedUsers.Concat(allUpdatedUsers))
+            foreach (var user in allUsers)
             {
-                user.Dispose();
+                try
+                {
+                    user.Dispose();
+                }
+                catch
+                {
+                    Console.WriteLine("probably already disposed");
+                }
             }
         }
-        await DoTaskSuccess(task); 
+        await DoTaskSuccess(task);
 
 
     }
@@ -489,14 +532,14 @@ public partial class UserService
         return loggedTask;
     }
 
-    public async Task<int?> UpdateUser(List<ADAttributeMap> updatableAttributes, Dictionary<string, string> newUser, DirectoryEntry user, TaskProcess task, Dictionary<string, object> csvRecord, bool logUpdateUser)
+    public async Task<int?> UpdateUser(List<ADAttributeMap> updatableAttributes, Dictionary<string, string> newUser, DirectoryEntry user, TaskProcess task, Dictionary<string, string> csvRecord, bool logUpdateUser)
     {
         int updatedValues = 0;
 
         foreach (ADAttributeMap attribute in updatableAttributes)
         {
             string? attributeValue = user.Properties[attribute.selectedAttribute]?.Value?.ToString();
-            string? updatedValue = newUser.GetValueOrDefault(attribute.selectedAttribute);
+            string? updatedValue = newUser.ContainsKey(attribute.selectedAttribute) ? newUser[attribute.selectedAttribute] : null;
 
             if (updatedValue != null && (attributeValue != updatedValue || attributeValue == null))
             {
@@ -591,7 +634,7 @@ public partial class UserService
         Dictionary<string, string> creds = new Dictionary<string, string>();
         try
         {
-           creds = await GetCreds();
+            creds = await GetCreds();
         }
         catch
         {
@@ -617,8 +660,10 @@ public partial class UserService
         {
             Filter = ldapFilter, // Set the search filter dynamically
             SearchScope = SearchScope.Subtree,
+            PageSize = 1000,
+            SizeLimit = 0
         };
-        
+
         // Execute the search and get the first result
         SearchResultCollection searchResult = searcher.FindAll();
         if (searchResult.Count == 0)
@@ -781,7 +826,7 @@ public partial class UserService
     }
     private static Random _random = new Random();
 
-    public async Task LogUserUpdate(TaskProcess task, DirectoryEntry user, string attribute, string? oldValue, string newValue, Dictionary<string, object>? csvObject)
+    public async Task LogUserUpdate(TaskProcess task, DirectoryEntry user, string attribute, string? oldValue, string newValue, Dictionary<string, string>? csvObject)
     {
         Guid userGuid = await GetGuid(user.Properties["objectGuid"].Value);
 
@@ -799,7 +844,7 @@ public partial class UserService
         await _context.UserUpdateLogs.AddAsync(newLog);
         await _context.SaveChangesAsync();
     }
-    public async Task LogUserCreate(TaskProcess task, DirectoryEntry user, string result, string? reason, Dictionary<string, object>? csvObject)
+    public async Task LogUserCreate(TaskProcess task, DirectoryEntry user, string result, string? reason, Dictionary<string, string>? csvObject)
     {
         Guid guid = await GetGuid(user.Properties["objectGuid"].Value);
 
@@ -843,7 +888,7 @@ public partial class UserService
     }
 
     /* NEW USER STUFF */
-    public async Task<DirectoryEntry> NewUser(TaskProcess task, List<ADAttributeMap> updatableAttributes, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    public async Task<DirectoryEntry> NewUser(TaskProcess task, List<ADAttributeMap> updatableAttributes, Dictionary<string, string> csvRecord, Dictionary<string, string> user)
     {
         try
         {
@@ -937,7 +982,7 @@ public partial class UserService
             }
         }
     }
-    private async Task SetUserDescription(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task SetUserDescription(TaskProcess task, Dictionary<string, string> csvRecord, Dictionary<string, string> user)
     {
         if (task.IngestChild.accountOption.AccountDescriptionValue != null)
         {
@@ -956,7 +1001,7 @@ public partial class UserService
         }
     }
 
-    private async Task SetUserDisplayName(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task SetUserDisplayName(TaskProcess task, Dictionary<string, string> csvRecord, Dictionary<string, string> user)
     {
         if (task.IngestChild.accountOption.DisplayNameValue != null)
         {
@@ -975,7 +1020,7 @@ public partial class UserService
         }
     }
 
-    private async Task<string> GetTentativeOuPath(TaskProcess task, Dictionary<string, object> csvRecord)
+    private async Task<string> GetTentativeOuPath(TaskProcess task, Dictionary<string, string> csvRecord)
     {
         string ouPath = "";
         if (task.IngestChild.LocationMapChild != null)
@@ -989,7 +1034,7 @@ public partial class UserService
         return ouPath;
     }
 
-    private async Task SetUserEmail(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task SetUserEmail(TaskProcess task, Dictionary<string, string> csvRecord, Dictionary<string, string> user)
     {
         switch (task.IngestChild.emailOption.option)
         {
@@ -1004,7 +1049,7 @@ public partial class UserService
         }
     }
 
-    private async Task SetUserManager(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task SetUserManager(TaskProcess task, Dictionary<string, string> csvRecord, Dictionary<string, string> user)
     {
         switch (task.IngestChild.managerOption.Option)
         {
@@ -1043,7 +1088,7 @@ public partial class UserService
         };
     }
 
-    private async Task<string> GeneratePassword(TaskProcess task, Dictionary<string, object> csvRecord, Dictionary<string, string> user)
+    private async Task<string> GeneratePassword(TaskProcess task, Dictionary<string, string> csvRecord, Dictionary<string, string> user)
     {
         string acctPassword = "";
         switch (task.IngestChild.accountOption.PasswordCreationType)
@@ -1103,7 +1148,7 @@ public partial class UserService
 
         return tentativeUPN;
     }
-    private async Task HandleNewUser(TaskProcess task, List<ADAttributeMap> updatableAttributes, Dictionary<string, string> user, DirectoryEntry newUser, Dictionary<string, object> csvRecord, string? password = null)
+    private async Task HandleNewUser(TaskProcess task, List<ADAttributeMap> updatableAttributes, Dictionary<string, string> user, DirectoryEntry newUser, Dictionary<string, string> csvRecord, string? password = null)
     {
         try
         {
@@ -1124,7 +1169,7 @@ public partial class UserService
 
         }
     }
-    public async Task<string?> GetOUDistinguishedName(IngestData currentIngest, Dictionary<string, object> csvRecord)
+    public async Task<string?> GetOUDistinguishedName(IngestData currentIngest, Dictionary<string, string> csvRecord)
     {
         string locationValue = String.Empty;
         try

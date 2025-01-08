@@ -59,7 +59,15 @@
                                     }
 
                                 }
-                                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(locationMap: newLocation))"></RadzenButton>
+                                @if (loading)
+                                {
+                                    <span class="loader" style="margin-left:auto;"></span>
+                                }
+                                else
+                                {
+                                    <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(locationMap: newLocation))"></RadzenButton>
+
+                                }
                             </RadzenCard>
                         </RadzenColumn>
                     </RadzenRow>
@@ -99,7 +107,14 @@
                                         int count = newLocation.DefaultGroupList.Count() - 3;
                                         <RadzenText>+@count</RadzenText>
                                     }
-                            <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="padding: 0;" Click="@(() => OpenGroups())"></RadzenButton>
+                                @if (loading)
+                                {
+                                    <span class="loader"></span>
+                                }
+                                else
+                                {
+                                    <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="padding: 0;" Click="@(() => OpenGroups())"></RadzenButton>
+                                }
                             </RadzenRow>
                         </RadzenCard>
                         </RadzenColumn>
@@ -134,7 +149,14 @@
                                                 }
 
                                             }
-                                            <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(location))"></RadzenButton>
+                                            @if (loading)
+                                            {
+                                                <span class="loader" Style="margin-left:auto;"></span>   
+                                            }
+                                            else
+                                            {
+                                                <RadzenButton Variant="Variant.Text" ButtonStyle="ButtonStyle.Light" Text=". . ." Style="margin-left:auto; padding: 0;" Click="@(() => OpenOUDialog(location))"></RadzenButton>
+                                            }
                                         </RadzenCard>
                                 </RadzenStack>
                             </RadzenColumn>
@@ -176,6 +198,8 @@
     };
 
     private List<string> columnNames = new List<string>();
+    
+    bool loading = false;
     string selectedLocationColumnName;
     string selectedGuidColumnName;
 
@@ -378,7 +402,36 @@
         _Nav.NavigateTo("/locations");
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            loading = true;
+            await InvokeAsync(StateHasChanged);
 
+                try
+                {
+                    Dictionary<string, string> lookups = new Dictionary<string, string>()
+                    {
+                        {"objectClass", "organizationalUnit"}
+                    };
+                    ous = await GetADOBjects(lookups);
+                    lookups = new Dictionary<string, string>()
+                    {
+                        {"objectClass", "group"}
+                    };
+
+                    groups = await GetADOBjects(lookups);
+                }
+                catch
+                {
+                    NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = "Error Loading AD Objects", Duration = 4000 });
+                }
+        }
+            loading = false;
+            await InvokeAsync(StateHasChanged);
+
+    }
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
@@ -396,24 +449,7 @@
                 _Nav.NavigateTo("/locations/add");
             }
         }
-        Dictionary<string, string> lookups = new Dictionary<string, string>()
-        {
-            {"objectClass", "organizationalUnit"}
-        };
-        try
-        {
-            ous = await GetADOBjects(lookups);
 
-            lookups = new Dictionary<string, string>()
-            {
-                {"objectClass", "group"}
-            };
-            groups = await GetADOBjects(lookups);
-        }
-        catch
-        {
-            NotificationService.Notify(new NotificationMessage { Severity = NotificationSeverity.Error, Summary = "Error", Detail = "Error Loading AD Objects", Duration = 4000 });
-        }
 
     }
 
