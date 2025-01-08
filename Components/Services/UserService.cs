@@ -349,7 +349,7 @@ public partial class UserService
             string[] files = Directory.GetFiles(retentionFolder, "*.csv", SearchOption.AllDirectories);
             foreach (string file in files)
             {
-                FileInfo fi = new FileInfo(file);
+                System.IO.FileInfo fi = new System.IO.FileInfo(file);
                 if (fi.LastAccessTime < DateTime.Now.AddDays(-task.RetentionDays.Value))
                 {
                     fi.Delete();
@@ -898,22 +898,11 @@ public partial class UserService
 
             string ouPath = await GetTentativeOuPath(task, csvRecord);
             Dictionary<string, string> creds = await GetCreds();
-            PrincipalContext context = new PrincipalContext(ContextType.Domain);
+            PrincipalContext context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath);
             string ldapPath = $"LDAP://" + creds["domain"] + "/" + ouPath;
-            if (creds.Count > 0)
+            if (creds.ContainsKey("username") && creds.ContainsKey("password"))
             {
                 context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath, creds["username"] + "@" + creds["domain"], creds["password"]);
-            }
-            else
-            {
-                try
-                {
-                    context = new PrincipalContext(ContextType.Domain, Domain.GetCurrentDomain().Name, ouPath);
-                }
-                catch
-                {
-                    Console.WriteLine("Not on domain probs");
-                }
             }
             string sam = await FindValidUsername(task.IngestChild.accountOption, user);
             sam = sam.ToLower();
@@ -991,8 +980,16 @@ public partial class UserService
                 }
                 else
                 {
+                    try
+                    {
                     DirectoryEntry groupToAdd = groupsToAdd[0];
-                    groupToAdd.Invoke("Add", new object[] { newUser.Path });
+                    groupToAdd.Properties["member"].Add(newUser.Path);
+                    }
+                    catch(Exception ex)
+                    {
+                        //delete dispose of user object and fail out
+                    }
+
                 }
             }
         }
