@@ -456,7 +456,7 @@ public partial class UserService
             int secureType = data.ContainsKey("secureType") ? int.Parse(data["secureType"].ToString()) : 0;
             string displayName = data["displayName"].ToString();
             string mailbox = data["mailbox"].ToString();
-            result = await _notify.SendEmailSMTP(notification, body, smtpServer, smtpPort, smtpUser, smtpPassword, secureType, displayName, mailbox);
+            result = await _notify.SendEmailSMTP(notification, body, smtpServer, smtpPort, smtpUser, smtpPassword, secureType, mailbox, displayName);
         }
         Guid logged = await SaveNotificationLog(notification, result);
     }
