@@ -161,6 +161,7 @@ public partial class UserService
                 foreach (var csvLine in csvData)
                 {
 
+                     await CheckCancel(task);
                     Dictionary<string, string> requiredElements = new Dictionary<string, string>();
 
                     foreach (ADAttributeMap requiredAttribute in requiredAttributes)
@@ -182,7 +183,7 @@ public partial class UserService
                         foreach (var attr in requiredElements)
                         {
                             // Skip user if the required attribute does not exist
-                            if (!currUser.Properties.Contains(attr.Key) || currUser.Properties[attr.Key] == null)
+                            if (!currUser.Properties.Contains(attr.Key))
                             {
                                 matches = false;
                                 break;
@@ -197,7 +198,13 @@ public partial class UserService
                                 matches = false;
                                 break;
                             }
+
                         }
+                            if (matches)
+                            {
+                                dirObjects.Add(currUser);
+                            }
+
                     }
 
                         Dictionary<string, string> newUser = new Dictionary<string, string>()
@@ -244,9 +251,10 @@ public partial class UserService
                                 allUsers.Add(createdUser);
 
                             }
-                            catch
+                            catch(Exception ex)
                             {
                                 Console.WriteLine("Failed to create user");
+
                             }
                             await MoveOn(task, true);
                             continue;
@@ -920,6 +928,7 @@ public partial class UserService
             string ldapPath = $"LDAP://" + creds["domain"] + "/" + ouPath;
             if (creds.ContainsKey("username") && creds.ContainsKey("password"))
             {
+                context.Dispose();
                 context = new PrincipalContext(ContextType.Domain, creds["domain"], ouPath, creds["username"] + "@" + creds["domain"], creds["password"]);
             }
             string sam = await FindValidUsername(task.IngestChild.accountOption, user);
@@ -959,19 +968,21 @@ public partial class UserService
             {
                 newUserPrincipal.Save();
             }
-            catch
+            catch(COMException ex)
             {
+                Console.WriteLine("didnt save" + ex.Message);
                 // Handle exception
             }
 
             DirectoryEntry newUser = (DirectoryEntry)newUserPrincipal.GetUnderlyingObject();
-            await HandleGroups(task, newUser);
             await HandleNewUser(task, updatableAttributes, user, newUser, csvRecord, password: acctPassword);
+            await HandleGroups(task, newUser);
+
             return newUser;
         }
         catch (COMException comEx)
         {
-            // Optionally, log the HRESULT or other details from the exception
+            Console.WriteLine(comEx.Message);
             return null;
         }
     }
@@ -981,16 +992,17 @@ public partial class UserService
         if (task.IngestChild.LocationMapChild.DefaultGroupList != null)
         {
             List<Guid> groupGuids = task.IngestChild.LocationMapChild.DefaultGroupList;
+            Dictionary<string, string> creds = await GetCreds();
+            PrincipalContext context = new PrincipalContext(ContextType.Domain, creds["domain"]);
+            if (creds.ContainsKey("username") && creds.ContainsKey("password"))
+            {
+                context = new PrincipalContext(ContextType.Domain, creds["domain"], null, creds["username"] + "@" + creds["domain"], creds["password"]);
+            }
 
             foreach (Guid guid in groupGuids)
             {
-                Dictionary<string, string> requiredElements = new Dictionary<string, string>()
-                {
-                    {"objectClass", "group"},
-                    {"objectGuid", guid.ToString()}
-                };
-                List<DirectoryEntry> groupsToAdd = await FindUser(requiredElements);
-                if (groupsToAdd == null || groupsToAdd.Count() > 1)
+                GroupPrincipal? group = GroupPrincipal.FindByIdentity(context, IdentityType.Guid, guid.ToString());
+                if (group == null)
                 {
                     Console.WriteLine("not found or found too many");
                     continue;
@@ -999,12 +1011,15 @@ public partial class UserService
                 {
                     try
                     {
-                        DirectoryEntry groupToAdd = groupsToAdd[0];
-                        groupToAdd.Properties["member"].Add(newUser.Path);
-                        groupToAdd.CommitChanges();
+                    
+                        group.Members.Add(context, IdentityType.DistinguishedName, newUser.Properties["distinguishedName"].Value.ToString());
+                        group.Save();
+
                     }
                     catch (Exception ex)
                     {
+                        Console.WriteLine(ex.Message);
+                        Console.WriteLine(ex.InnerException.Message);
                         //delete dispose of user object and fail out
                     }
 
@@ -1139,7 +1154,6 @@ public partial class UserService
             default:
                 break;
         }
-        Console.WriteLine("PASSWORD @@@" + acctPassword);
         return acctPassword;
     }
     public async Task<string> FindValidUsername(AccountOptions accountOption, Dictionary<string, string> user)
