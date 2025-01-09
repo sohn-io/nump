@@ -99,12 +99,18 @@ public partial class UserService
             return;
         }
         List<string> csvFiles = Directory.EnumerateFiles(task.IngestChild.FileLocation, "*.*", SearchOption.TopDirectoryOnly).Where(s => s.EndsWith(".csv")).ToList();
-
+        string ldapFilter = "(&(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=512)(!(userAccountControl:1.2.840.113556.1.4.803:=2))";
+        foreach (ADAttributeMap requiredAttribute in requiredAttributes)
+        {
+            //ldapFilter += $"({requiredAttribute.selectedAttribute}=*)";
+        }
+        ldapFilter += ")";
         foreach (string file in csvFiles)
         {
             await CheckCancel(task);
-            string ldapFilter = "(&(objectClass=user)(userAccountControl:1.2.840.113556.1.4.803:=512)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))";
+
             List<DirectoryEntry> allUsers = await FindUser(ldapFilter: ldapFilter);
+            Console.WriteLine(allUsers.Count());
             //(!(userAccountControl:1.2.840.113556.1.4.803:=2))(objectCategory=person)
             List<string> headerRow = new List<string>();
             List<DirectoryEntry> allCreatedUsers = new List<DirectoryEntry>();
@@ -161,7 +167,7 @@ public partial class UserService
                 foreach (var csvLine in csvData)
                 {
 
-                     await CheckCancel(task);
+                    await CheckCancel(task);
                     Dictionary<string, string> requiredElements = new Dictionary<string, string>();
 
                     foreach (ADAttributeMap requiredAttribute in requiredAttributes)
@@ -178,6 +184,7 @@ public partial class UserService
                     foreach (var currUser in allUsers)
                     {
                         bool matches = true;
+                        await CheckCancel(task);
 
                         // Check if the user properties match all required attributes
                         foreach (var attr in requiredElements)
@@ -200,130 +207,130 @@ public partial class UserService
                             }
 
                         }
-                            if (matches)
-                            {
-                                dirObjects.Add(currUser);
-                            }
+                        if (matches)
+                        {
+                            dirObjects.Add(currUser);
+                        }
 
                     }
 
-                        Dictionary<string, string> newUser = new Dictionary<string, string>()
+                    Dictionary<string, string> newUser = new Dictionary<string, string>()
                             {
                                 {"taskName", task.Name}
                             };
 
-                        if (enabledAttributes != null)
+                    if (enabledAttributes != null)
+                    {
+                        foreach (var columnItem in enabledAttributes)
                         {
-                            foreach (var columnItem in enabledAttributes)
-                            {
-                                var columnValue = csvLine.Value.Where(x => x.Key == columnItem.associatedColumn.ToLower()).Select(x => x.Value).FirstOrDefault().ToString();
-                                newUser.Add(columnItem.selectedAttribute, columnValue);
-                            }
+                            var columnValue = csvLine.Value.Where(x => x.Key == columnItem.associatedColumn.ToLower()).Select(x => x.Value).FirstOrDefault().ToString();
+                            newUser.Add(columnItem.selectedAttribute, columnValue);
                         }
-                        if (dirObjects != null && dirObjects.Count() > 1)
-                        {
+                    }
+                    if (dirObjects != null && dirObjects.Count() > 1)
+                    {
 
-                            if (task.AllowSearchLogging)
-                            {
-                                //await LogUserUpdate(task, newUser, "SEARCH", "MULTIPLE USERS FOUND");
-                            }
-                            await MoveOn(task, true);
-                            continue;
-                        }
-                        if (dirObjects == null || dirObjects.Count == 0)
-                        {
-                            if (task.AllowSearchLogging)
-                            {
-                                //await LogUserUpdate(task, newUser, "SEARCH", "NOT FOUND");
-                            }
-                            //New user
-                            if (!task.AllowCreateAccount)
-                            {
-                                //await LogUserUpdate(task, );
-                                await MoveOn(task, true);
-                                continue;
-
-                            }
-                            try
-                            {
-                                DirectoryEntry createdUser = await NewUser(task, conformableAttributes, csvLine.Value, newUser);
-                                allCreatedUsers.Add(createdUser);
-                                allUsers.Add(createdUser);
-
-                            }
-                            catch(Exception ex)
-                            {
-                                Console.WriteLine("Failed to create user");
-
-                            }
-                            await MoveOn(task, true);
-                            continue;
-                        }
                         if (task.AllowSearchLogging)
                         {
-                            // await LogUserUpdate(task, newUser, "SEARCH", "USER FOUND");
+                            //await LogUserUpdate(task, newUser, "SEARCH", "MULTIPLE USERS FOUND");
                         }
-
-                        //update user
-                        DirectoryEntry user = dirObjects[0];
-
-                        if (!task.AllowUpdateFields)
+                        await MoveOn(task, true);
+                        continue;
+                    }
+                    if (dirObjects == null || dirObjects.Count == 0)
+                    {
+                        if (task.AllowSearchLogging)
                         {
-
-                            //await LogUserUpdate(task, newUser, "UPDATE", "NOT ALLOWED");
+                            //await LogUserUpdate(task, newUser, "SEARCH", "NOT FOUND");
+                        }
+                        //New user
+                        if (!task.AllowCreateAccount)
+                        {
+                            //await LogUserUpdate(task, );
                             await MoveOn(task, true);
                             continue;
+
                         }
-                        int? updatedValues = await UpdateUser(conformableAttributes, newUser, user, task, csvLine.Value, true);
-                        if (task.CurrCsvRow != task.MaxCsvRow)
+                        try
                         {
-                            task.CurrCsvRow++;
+                            DirectoryEntry createdUser = await NewUser(task, conformableAttributes, csvLine.Value, newUser);
+                            allCreatedUsers.Add(createdUser);
+                            allUsers.Add(createdUser);
+
                         }
-                        if (updatedValues > 0)
+                        catch (Exception ex)
                         {
-                            NotificationData? updatedUserNotification = notifications.Where(x => x.NotificationType == 3).FirstOrDefault();
-                            if (updatedUserNotification != null)
-                            {
-                                List<DirectoryEntry> users = new List<DirectoryEntry>()
+                            Console.WriteLine("Failed to create user");
+
+                        }
+                        await MoveOn(task, true);
+                        continue;
+                    }
+                    if (task.AllowSearchLogging)
+                    {
+                        // await LogUserUpdate(task, newUser, "SEARCH", "USER FOUND");
+                    }
+
+                    //update user
+                    DirectoryEntry user = dirObjects[0];
+
+                    if (!task.AllowUpdateFields)
+                    {
+
+                        //await LogUserUpdate(task, newUser, "UPDATE", "NOT ALLOWED");
+                        await MoveOn(task, true);
+                        continue;
+                    }
+                    int? updatedValues = await UpdateUser(conformableAttributes, newUser, user, task, csvLine.Value, true);
+                    if (task.CurrCsvRow != task.MaxCsvRow)
+                    {
+                        task.CurrCsvRow++;
+                    }
+                    if (updatedValues > 0)
+                    {
+                        NotificationData? updatedUserNotification = notifications.Where(x => x.NotificationType == 3).FirstOrDefault();
+                        if (updatedUserNotification != null)
+                        {
+                            List<DirectoryEntry> users = new List<DirectoryEntry>()
                             {
                                 user
                             };
-                                await HandleNotifications(task, loggedTask, updatedUserNotification, null, users);
-                            }
-                            allUpdatedUsers.Add(user);
+                            await HandleNotifications(task, loggedTask, updatedUserNotification, null, users);
                         }
-                        await MoveOn(task, false);
+                        allUpdatedUsers.Add(user);
+                    }
+                    await MoveOn(task, false);
 
-                    }
-                    Timer.Stop();
-                    Console.WriteLine("Elapsed in MS: " + Timer.ElapsedMilliseconds);
                 }
-                loggedTask.CreatedUsers = allCreatedUsers.Count();
-                loggedTask.UpdatedUsers = allUpdatedUsers.Count();
-                List<NotificationData> completedNotification = notifications.Where(x => x.NotificationType == 1).ToList();
-                if (completedNotification.Count > 0)
+                Timer.Stop();
+                Console.WriteLine("Elapsed in MS: " + Timer.ElapsedMilliseconds);
+            }
+            loggedTask.CreatedUsers = allCreatedUsers.Count();
+            loggedTask.UpdatedUsers = allUpdatedUsers.Count();
+            List<NotificationData> completedNotification = notifications.Where(x => x.NotificationType == 1).ToList();
+            if (completedNotification.Count > 0)
+            {
+                foreach (NotificationData notification in completedNotification)
                 {
-                    foreach (NotificationData notification in completedNotification)
-                    {
-                        await HandleNotifications(task, loggedTask, notification, allCreatedUsers, allUpdatedUsers);
-                    }
-                }
-                foreach (var user in allUsers)
-                {
-                    try
-                    {
-                        user.Dispose();
-                    }
-                    catch
-                    {
-                        Console.WriteLine("probably already disposed");
-                    }
+                    await HandleNotifications(task, loggedTask, notification, allCreatedUsers, allUpdatedUsers);
                 }
             }
-            await DoTaskSuccess(task);
-
-
+            foreach (var user in allUsers)
+            {
+                try
+                {
+                    user.Dispose();
+                }
+                catch
+                {
+                    Console.WriteLine("probably already disposed");
+                }
+            }
         }
+        await DoTaskSuccess(task);
+
+
+    }
     private async Task CheckCancel(TaskProcess task)
     {
         if (task.CancelToken.Token.IsCancellationRequested)
@@ -968,10 +975,15 @@ public partial class UserService
             {
                 newUserPrincipal.Save();
             }
-            catch(COMException ex)
+            catch (PrincipalExistsException ex)
             {
-                Console.WriteLine("didnt save" + ex.Message);
-                // Handle exception
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.InnerException.Message);
+                Console.WriteLine(newUserPrincipal.SamAccountName);
+                Console.WriteLine(newUserPrincipal.Name);
+                Console.WriteLine(newUserPrincipal.UserPrincipalName);
+               newUserPrincipal.Name = newUserPrincipal.SamAccountName;
+               newUserPrincipal.Save();
             }
 
             DirectoryEntry newUser = (DirectoryEntry)newUserPrincipal.GetUnderlyingObject();
@@ -1011,7 +1023,7 @@ public partial class UserService
                 {
                     try
                     {
-                    
+
                         group.Members.Add(context, IdentityType.DistinguishedName, newUser.Properties["distinguishedName"].Value.ToString());
                         group.Save();
 
@@ -1119,19 +1131,28 @@ public partial class UserService
 
     private UserPrincipal CreateUserPrincipal(PrincipalContext context, Dictionary<string, string> user, string sam, string domain, int accountExpirationDays)
     {
-        return new UserPrincipal(context)
+        try
         {
-            Name = user.ContainsKey("displayName") ? user["displayName"] : null,
-            GivenName = user.ContainsKey("givenName") ? user["givenName"] : null,
-            Surname = user.ContainsKey("sn") ? user["sn"] : null,
-            DisplayName = user.ContainsKey("displayName") ? user["displayName"] : null,
-            SamAccountName = sam,
-            UserPrincipalName = sam + "@" + domain,
-            Enabled = true,
-            Description = user.ContainsKey("description") ? user["description"] : null,
-            EmailAddress = user.ContainsKey("mail") ? user["mail"] : null,
-            AccountExpirationDate = accountExpirationDays > 0 ? DateTime.Now.AddDays(accountExpirationDays) : null
-        };
+            UserPrincipal returnPrincipal = new UserPrincipal(context)
+            {
+                Name = user.ContainsKey("displayName") ? user["displayName"] : null,
+                GivenName = user.ContainsKey("givenName") ? user["givenName"] : null,
+                Surname = user.ContainsKey("sn") ? user["sn"] : null,
+                DisplayName = user.ContainsKey("displayName") ? user["displayName"] : null,
+                SamAccountName = sam,
+                UserPrincipalName = sam + "@" + domain,
+                Enabled = true,
+                Description = user.ContainsKey("description") ? user["description"] : null,
+                EmailAddress = user.ContainsKey("mail") ? user["mail"] : null,
+                AccountExpirationDate = accountExpirationDays > 0 ? DateTime.Now.AddDays(accountExpirationDays) : null,
+            };
+            return returnPrincipal;
+        }
+        catch(Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            return new UserPrincipal(context);
+        }
     }
 
     private async Task<string> GeneratePassword(TaskProcess task, Dictionary<string, string> csvRecord, Dictionary<string, string> user)
@@ -1167,9 +1188,10 @@ public partial class UserService
                 tentativeUPN = Regex.Replace(tentativeUPN, @"[^\w]", "");
                 Dictionary<string, string> upn = new Dictionary<string, string>()
                 {
-                    {"cn", tentativeUPN}
+                    {"SamAccountName", tentativeUPN}
                 };
                 List<DirectoryEntry> existingUser = await FindUser(upn);
+
                 if (existingUser != null)
                 {
                     int i = 0;
@@ -1177,8 +1199,8 @@ public partial class UserService
                     do
                     {
                         tentativeUPN = sourceUpn + i;
-                        upn["cn"] = tentativeUPN;
-
+                        upn["SamAccountName"] = tentativeUPN;
+                        Console.WriteLine(tentativeUPN);
                         existingUser = await FindUser(upn);
                         i++;
                     } while (existingUser != null);
@@ -1208,7 +1230,7 @@ public partial class UserService
             }
             await LogUserCreate(task, newUser, result, null, csvRecord);
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             await LogUserCreate(task, newUser, result, ex.Message, csvRecord);
             newUser.DeleteTree();

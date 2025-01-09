@@ -44,6 +44,13 @@ using (var scope = app.Services.CreateScope())
 
     // Ensure the database is created
     dbContext.Database.EnsureCreated();
+    var rip = dbContext.TaskLogs.Where(x => x.CurrentStatus != "Stopped").ToList();
+    foreach (var task in rip)
+    {
+        task.CurrentStatus = "Stopped";
+        task.Result = "APP CLOSED";
+    }
+    dbContext.SaveChanges();
 }
 
 // Configure the HTTP request pipeline.
